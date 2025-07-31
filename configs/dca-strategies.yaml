@@ -1,0 +1,24 @@
+strategies:
+  conservative_btc:
+    symbol: "BTCUSDT"
+    base_order_size: 100.0
+    safety_order_size: 100.0
+    safety_orders_count: 3
+    price_deviation: 3.0
+    take_profit_percent: 1.5
+
+  aggressive_eth:
+    symbol: "ETHUSDT"
+    base_order_size: 200.0
+    safety_order_size: 150.0
+    safety_orders_count: 5
+    price_deviation: 2.0
+    take_profit_percent: 2.5
+
+  altcoin_speculative:
+    symbol: "SOLUSDT"
+    base_order_size: 50.0
+    safety_order_size: 75.0
+    safety_orders_count: 7
+    price_deviation: 5.0
+    take_profit_percent: 3.0

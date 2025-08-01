@@ -1,0 +1,25 @@
+strategies:
+  conservative_btc:
+    symbol: "BTCUSDT"
+    upper_bound: 72000.0
+    lower_bound: 58000.0
+    grid_levels: 20
+    order_size: 0.001
+    grid_type: "arithmetic"
+
+  aggressive_eth:
+    symbol: "ETHUSDT"
+    upper_bound: 4200.0
+    lower_bound: 2800.0
+    grid_levels: 35
+    order_size: 0.05
+    grid_type: "geometric"
+
+  scalping_sol:
+    symbol: "SOLUSDT"
+    upper_bound: 180.0
+    lower_bound: 120.0
+    grid_levels: 50
+    order_size: 2.0
+    grid_type: "arithmetic"
+    reinvestment_rate: 0.8

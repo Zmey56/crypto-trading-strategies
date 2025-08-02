@@ -1,0 +1,11 @@
+strategy:
+  type: "dca"
+  symbol: "BTCUSDT"
+  base_order_size: 50.0        # Минимальный начальный размер
+  safety_order_size: 50.0      # Консервативное усреднение
+  safety_orders_count: 3       # Ограниченное количество ордеров
+  price_deviation: 5.0         # Широкие интервалы для безопасности
+  take_profit: 3.0             # Консервативный take profit
+  risk_management:
+    max_drawdown: 15.0         # Жесткие лимиты просадки
+    daily_loss_limit: 5.0      # Дневной лимит потерь

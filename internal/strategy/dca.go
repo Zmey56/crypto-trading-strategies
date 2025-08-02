@@ -2,72 +2,183 @@ package strategy
 
 import (
 	"context"
-	"crypto-trading-strategies/internal/portfolio"
-	"crypto-trading-strategies/pkg/types"
-	"errors"
+	"fmt"
+	"sync"
 	"time"
+
+	"crypto-trading-strategies/pkg/types"
+	"crypto-trading-strategies/pkg/utils"
 )
 
 type DCAStrategy struct {
-	// Основные параметры стратегии
-	Symbol            string  `json:"symbol"`
-	BaseOrderSize     float64 `json:"base_order_size"`
-	SafetyOrderSize   float64 `json:"safety_order_size"`
-	SafetyOrdersCount int     `json:"safety_orders_count"`
-	PriceDeviation    float64 `json:"price_deviation"` // % для размещения safety ордеров
-	TakeProfitPercent float64 `json:"take_profit_percent"`
+	config           types.DCAConfig
+	state            DCAState
+	currentOrders    []types.Order
+	averagePrice     float64
+	totalInvested    float64
+	totalQuantity    float64
+	safetyOrderCount int
 
-	// Внутреннее состояние
-	CurrentOrders []types.Order `json:"current_orders"`
-	AveragePrice  float64       `json:"average_price"`
-	TotalInvested float64       `json:"total_invested"`
-	TotalQuantity float64       `json:"total_quantity"`
-	IsActive      bool          `json:"is_active"`
-
-	// Зависимости
+	// Dependencies
+	exchange         exchange.Client
 	portfolioManager *portfolio.Manager
-	riskManager      RiskManager
+	riskManager      *risk.Manager
+	logger           *logger.Logger
+
+	// Synchronization
+	mutex sync.RWMutex
+
+	// Channels for coordination
+	signalChan chan types.Signal
+	stopChan   chan struct{}
 }
 
-// Execute реализует основную логику DCA стратегии
+type DCAState int
+
+const (
+	DCAStateInactive DCAState = iota
+	DCAStateActive
+	DCAStateProfitTaking
+	DCAStateCompleted
+)
+
+func NewDCAStrategy(config types.DCAConfig, deps StrategyDependencies) *DCAStrategy {
+	return &DCAStrategy{
+		config:           config,
+		state:            DCAStateInactive,
+		exchange:         deps.Exchange,
+		portfolioManager: deps.PortfolioManager,
+		riskManager:      deps.RiskManager,
+		logger:           deps.Logger,
+		signalChan:       make(chan types.Signal, 100),
+		stopChan:         make(chan struct{}),
+	}
+}
+
 func (d *DCAStrategy) Execute(ctx context.Context, market types.MarketData) error {
-	// Проверка условий для входа в сделку
-	if !d.IsActive {
-		return d.initiateFirstOrder(ctx, market)
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	if err := d.validateMarketConditions(market); err != nil {
+		return fmt.Errorf("market validation failed: %w", err)
 	}
 
-	// Логика размещения safety ордеров при падении цены
+	switch d.state {
+	case DCAStateInactive:
+		return d.initiateBaseOrder(ctx, market)
+	case DCAStateActive:
+		return d.processActiveState(ctx, market)
+	case DCAStateProfitTaking:
+		return d.processProfitTaking(ctx, market)
+	default:
+		return nil
+	}
+}
+
+func (d *DCAStrategy) initiateBaseOrder(ctx context.Context, market types.MarketData) error {
+	if !d.riskManager.CanTrade(d.config.BaseOrderSize, d.config.Symbol) {
+		return ErrRiskLimitsExceeded
+	}
+
+	orderSize := d.calculateOptimalOrderSize(market)
+
+	order := types.Order{
+		ID:         utils.GenerateOrderID(),
+		Symbol:     d.config.Symbol,
+		Side:       types.BUY,
+		Type:       types.MARKET,
+		Quantity:   orderSize / market.Price,
+		Price:      market.Price,
+		Status:     types.OrderStatusPending,
+		Timestamp:  time.Now(),
+		StrategyID: d.config.ID,
+	}
+
+	if err := d.exchange.PlaceOrder(ctx, order); err != nil {
+		return fmt.Errorf("failed to place base order: %w", err)
+	}
+
+	d.updatePosition(order)
+	d.state = DCAStateActive
+
+	d.logger.Info("DCA base order placed",
+		"symbol", d.config.Symbol,
+		"quantity", order.Quantity,
+		"price", order.Price)
+
+	return nil
+}
+
+func (d *DCAStrategy) processActiveState(ctx context.Context, market types.MarketData) error {
+	// Check for safety order conditions
 	if d.shouldPlaceSafetyOrder(market.Price) {
 		return d.placeSafetyOrder(ctx, market)
 	}
 
-	// Проверка условий для take profit
+	// Check for profit taking conditions
 	if d.shouldTakeProfit(market.Price) {
-		return d.executetakeProfit(ctx, market)
+		return d.initiateProfitTaking(ctx, market)
 	}
 
 	return nil
 }
 
-// initiateFirstOrder размещает первоначальный ордер
-func (d *DCAStrategy) initiateFirstOrder(ctx context.Context, market types.MarketData) error {
-	// Валидация размера позиции согласно риск-менеджменту
-	if !d.riskManager.CanTrade(d.BaseOrderSize, d.Symbol) {
-		return errors.New("risk limits exceeded for initial order")
+func (d *DCAStrategy) shouldPlaceSafetyOrder(currentPrice float64) bool {
+	if d.safetyOrderCount >= d.config.SafetyOrdersCount {
+		return false
+	}
+
+	priceDeviationThreshold := d.averagePrice * (1 - d.config.PriceDeviation/100)
+	return currentPrice <= priceDeviationThreshold
+}
+
+func (d *DCAStrategy) placeSafetyOrder(ctx context.Context, market types.MarketData) error {
+	// Progressive safety order sizing
+	orderSize := d.config.SafetyOrderSize * d.calculateSafetyOrderMultiplier()
+
+	if !d.riskManager.CanTrade(orderSize, d.config.Symbol) {
+		d.logger.Warn("Safety order blocked by risk manager",
+			"symbol", d.config.Symbol,
+			"orderSize", orderSize)
+		return nil
 	}
 
 	order := types.Order{
-		Symbol:    d.Symbol,
-		Side:      types.BUY,
-		Type:      types.MARKET,
-		Quantity:  d.BaseOrderSize / market.Price,
-		Price:     market.Price,
-		Timestamp: time.Now(),
+		ID:         utils.GenerateOrderID(),
+		Symbol:     d.config.Symbol,
+		Side:       types.BUY,
+		Type:       types.MARKET,
+		Quantity:   orderSize / market.Price,
+		Price:      market.Price,
+		Status:     types.OrderStatusPending,
+		Timestamp:  time.Now(),
+		StrategyID: d.config.ID,
+		OrderTag:   fmt.Sprintf("safety_%d", d.safetyOrderCount+1),
 	}
 
-	// Обновление внутреннего состояния
-	d.updatePosition(order)
-	d.IsActive = true
+	if err := d.exchange.PlaceOrder(ctx, order); err != nil {
+		return fmt.Errorf("failed to place safety order: %w", err)
+	}
 
-	return d.portfolioManager.PlaceOrder(ctx, order)
+	d.updatePosition(order)
+	d.safetyOrderCount++
+
+	d.logger.Info("DCA safety order placed",
+		"symbol", d.config.Symbol,
+		"safetyOrderNumber", d.safetyOrderCount,
+		"newAveragePrice", d.averagePrice)
+
+	return nil
+}
+
+func (d *DCAStrategy) updatePosition(order types.Order) {
+	newInvestment := order.Quantity * order.Price
+	newQuantity := order.Quantity
+
+	// Calculate new weighted average price
+	d.averagePrice = (d.totalInvested + newInvestment) / (d.totalQuantity + newQuantity)
+	d.totalInvested += newInvestment
+	d.totalQuantity += newQuantity
+
+	d.currentOrders = append(d.currentOrders, order)
 }

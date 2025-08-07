@@ -2,183 +2,264 @@ package strategy
 
 import (
 	"context"
+	"crypto-trading-strategies/internal/logger"
+	"crypto-trading-strategies/pkg/types"
 	"fmt"
 	"sync"
 	"time"
-
-	"crypto-trading-strategies/pkg/types"
-	"crypto-trading-strategies/pkg/utils"
 )
 
+// DCAStrategy представляет DCA стратегию
 type DCAStrategy struct {
-	config           types.DCAConfig
-	state            DCAState
-	currentOrders    []types.Order
-	averagePrice     float64
-	totalInvested    float64
-	totalQuantity    float64
-	safetyOrderCount int
-
-	// Dependencies
-	exchange         exchange.Client
-	portfolioManager *portfolio.Manager
-	riskManager      *risk.Manager
-	logger           *logger.Logger
-
-	// Synchronization
-	mutex sync.RWMutex
-
-	// Channels for coordination
-	signalChan chan types.Signal
-	stopChan   chan struct{}
+	config   types.DCAConfig
+	exchange types.ExchangeClient
+	logger   *logger.Logger
+	metrics  *types.StrategyMetrics
+	lastBuy  time.Time
+	buyCount int
+	mu       sync.RWMutex
+	ctx      context.Context
+	cancel   context.CancelFunc
 }
 
-type DCAState int
+// NewDCAStrategy создает новую DCA стратегию
+func NewDCAStrategy(config types.DCAConfig, exchange types.ExchangeClient, logger *logger.Logger) *DCAStrategy {
+	ctx, cancel := context.WithCancel(context.Background())
 
-const (
-	DCAStateInactive DCAState = iota
-	DCAStateActive
-	DCAStateProfitTaking
-	DCAStateCompleted
-)
-
-func NewDCAStrategy(config types.DCAConfig, deps StrategyDependencies) *DCAStrategy {
 	return &DCAStrategy{
-		config:           config,
-		state:            DCAStateInactive,
-		exchange:         deps.Exchange,
-		portfolioManager: deps.PortfolioManager,
-		riskManager:      deps.RiskManager,
-		logger:           deps.Logger,
-		signalChan:       make(chan types.Signal, 100),
-		stopChan:         make(chan struct{}),
+		config:   config,
+		exchange: exchange,
+		logger:   logger,
+		metrics: &types.StrategyMetrics{
+			LastUpdate: time.Now(),
+		},
+		ctx:    ctx,
+		cancel: cancel,
 	}
 }
 
+// Execute выполняет DCA стратегию
 func (d *DCAStrategy) Execute(ctx context.Context, market types.MarketData) error {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
-	if err := d.validateMarketConditions(market); err != nil {
-		return fmt.Errorf("market validation failed: %w", err)
-	}
-
-	switch d.state {
-	case DCAStateInactive:
-		return d.initiateBaseOrder(ctx, market)
-	case DCAStateActive:
-		return d.processActiveState(ctx, market)
-	case DCAStateProfitTaking:
-		return d.processProfitTaking(ctx, market)
-	default:
-		return nil
-	}
-}
-
-func (d *DCAStrategy) initiateBaseOrder(ctx context.Context, market types.MarketData) error {
-	if !d.riskManager.CanTrade(d.config.BaseOrderSize, d.config.Symbol) {
-		return ErrRiskLimitsExceeded
-	}
-
-	orderSize := d.calculateOptimalOrderSize(market)
-
-	order := types.Order{
-		ID:         utils.GenerateOrderID(),
-		Symbol:     d.config.Symbol,
-		Side:       types.BUY,
-		Type:       types.MARKET,
-		Quantity:   orderSize / market.Price,
-		Price:      market.Price,
-		Status:     types.OrderStatusPending,
-		Timestamp:  time.Now(),
-		StrategyID: d.config.ID,
-	}
-
-	if err := d.exchange.PlaceOrder(ctx, order); err != nil {
-		return fmt.Errorf("failed to place base order: %w", err)
-	}
-
-	d.updatePosition(order)
-	d.state = DCAStateActive
-
-	d.logger.Info("DCA base order placed",
-		"symbol", d.config.Symbol,
-		"quantity", order.Quantity,
-		"price", order.Price)
-
-	return nil
-}
-
-func (d *DCAStrategy) processActiveState(ctx context.Context, market types.MarketData) error {
-	// Check for safety order conditions
-	if d.shouldPlaceSafetyOrder(market.Price) {
-		return d.placeSafetyOrder(ctx, market)
-	}
-
-	// Check for profit taking conditions
-	if d.shouldTakeProfit(market.Price) {
-		return d.initiateProfitTaking(ctx, market)
-	}
-
-	return nil
-}
-
-func (d *DCAStrategy) shouldPlaceSafetyOrder(currentPrice float64) bool {
-	if d.safetyOrderCount >= d.config.SafetyOrdersCount {
-		return false
-	}
-
-	priceDeviationThreshold := d.averagePrice * (1 - d.config.PriceDeviation/100)
-	return currentPrice <= priceDeviationThreshold
-}
-
-func (d *DCAStrategy) placeSafetyOrder(ctx context.Context, market types.MarketData) error {
-	// Progressive safety order sizing
-	orderSize := d.config.SafetyOrderSize * d.calculateSafetyOrderMultiplier()
-
-	if !d.riskManager.CanTrade(orderSize, d.config.Symbol) {
-		d.logger.Warn("Safety order blocked by risk manager",
-			"symbol", d.config.Symbol,
-			"orderSize", orderSize)
+	// Проверяем, включена ли стратегия
+	if !d.config.Enabled {
 		return nil
 	}
 
-	order := types.Order{
-		ID:         utils.GenerateOrderID(),
-		Symbol:     d.config.Symbol,
-		Side:       types.BUY,
-		Type:       types.MARKET,
-		Quantity:   orderSize / market.Price,
-		Price:      market.Price,
-		Status:     types.OrderStatusPending,
-		Timestamp:  time.Now(),
-		StrategyID: d.config.ID,
-		OrderTag:   fmt.Sprintf("safety_%d", d.safetyOrderCount+1),
+	// Проверяем интервал между покупками
+	if time.Since(d.lastBuy) < d.config.Interval {
+		return nil
 	}
 
-	if err := d.exchange.PlaceOrder(ctx, order); err != nil {
-		return fmt.Errorf("failed to place safety order: %w", err)
+	// Проверяем максимальное количество инвестиций
+	if d.buyCount >= d.config.MaxInvestments {
+		d.logger.Info("Достигнуто максимальное количество инвестиций для %s", d.config.Symbol)
+		return nil
 	}
 
-	d.updatePosition(order)
-	d.safetyOrderCount++
+	// Проверяем условия для покупки
+	if d.config.PriceThreshold > 0 && market.Price > d.config.PriceThreshold {
+		return nil
+	}
 
-	d.logger.Info("DCA safety order placed",
-		"symbol", d.config.Symbol,
-		"safetyOrderNumber", d.safetyOrderCount,
-		"newAveragePrice", d.averagePrice)
+	// Выполняем покупку
+	if err := d.executeBuy(ctx, market); err != nil {
+		d.logger.Error("Ошибка при выполнении покупки: %v", err)
+		return err
+	}
 
 	return nil
 }
 
-func (d *DCAStrategy) updatePosition(order types.Order) {
-	newInvestment := order.Quantity * order.Price
-	newQuantity := order.Quantity
+// GetSignal генерирует торговый сигнал
+func (d *DCAStrategy) GetSignal(market types.MarketData) types.Signal {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 
-	// Calculate new weighted average price
-	d.averagePrice = (d.totalInvested + newInvestment) / (d.totalQuantity + newQuantity)
-	d.totalInvested += newInvestment
-	d.totalQuantity += newQuantity
+	// Проверяем порог цены
+	if d.config.PriceThreshold > 0 && market.Price > d.config.PriceThreshold {
+		return types.Signal{
+			Type:      types.SignalTypeHold,
+			Symbol:    market.Symbol,
+			Price:     market.Price,
+			Timestamp: market.Timestamp,
+		}
+	}
 
-	d.currentOrders = append(d.currentOrders, order)
+	// Проверяем интервал
+	if time.Since(d.lastBuy) < d.config.Interval {
+		return types.Signal{
+			Type:      types.SignalTypeHold,
+			Symbol:    market.Symbol,
+			Price:     market.Price,
+			Timestamp: market.Timestamp,
+		}
+	}
+
+	// Проверяем максимальное количество инвестиций
+	if d.buyCount >= d.config.MaxInvestments {
+		return types.Signal{
+			Type:      types.SignalTypeHold,
+			Symbol:    market.Symbol,
+			Price:     market.Price,
+			Timestamp: market.Timestamp,
+		}
+	}
+
+	return types.Signal{
+		Type:      types.SignalTypeBuy,
+		Symbol:    market.Symbol,
+		Price:     market.Price,
+		Quantity:  d.calculateQuantity(market.Price),
+		Strength:  1.0,
+		Timestamp: market.Timestamp,
+		Metadata: map[string]interface{}{
+			"buy_count": d.buyCount + 1,
+			"interval":  d.config.Interval.String(),
+		},
+	}
+}
+
+// ValidateConfig проверяет корректность конфигурации
+func (d *DCAStrategy) ValidateConfig() error {
+	if d.config.Symbol == "" {
+		return fmt.Errorf("symbol is required")
+	}
+
+	if d.config.InvestmentAmount <= 0 {
+		return fmt.Errorf("investment amount must be positive")
+	}
+
+	if d.config.Interval <= 0 {
+		return fmt.Errorf("interval must be positive")
+	}
+
+	if d.config.MaxInvestments <= 0 {
+		return fmt.Errorf("max investments must be positive")
+	}
+
+	return nil
+}
+
+// GetMetrics возвращает метрики стратегии
+func (d *DCAStrategy) GetMetrics() types.StrategyMetrics {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	return *d.metrics
+}
+
+// Shutdown завершает работу стратегии
+func (d *DCAStrategy) Shutdown(ctx context.Context) error {
+	d.cancel()
+	d.logger.Info("DCA стратегия остановлена")
+	return nil
+}
+
+// executeBuy выполняет покупку
+func (d *DCAStrategy) executeBuy(ctx context.Context, market types.MarketData) error {
+	quantity := d.calculateQuantity(market.Price)
+
+	order := types.Order{
+		Symbol:    d.config.Symbol,
+		Side:      types.OrderSideBuy,
+		Type:      types.OrderTypeMarket,
+		Quantity:  quantity,
+		Price:     market.Price,
+		Status:    types.OrderStatusNew,
+		Timestamp: time.Now(),
+	}
+
+	d.logger.Info("Размещаем DCA ордер: %s %.8f @ %.2f",
+		order.Symbol, order.Quantity, order.Price)
+
+	if err := d.exchange.PlaceOrder(ctx, order); err != nil {
+		return fmt.Errorf("failed to place order: %w", err)
+	}
+
+	// Обновляем метрики
+	d.lastBuy = time.Now()
+	d.buyCount++
+	d.updateMetrics(order, market.Price)
+
+	d.logger.Info("DCA покупка выполнена: %s %.8f @ %.2f (покупка #%d)",
+		order.Symbol, order.Quantity, order.Price, d.buyCount)
+
+	return nil
+}
+
+// calculateQuantity вычисляет количество для покупки
+func (d *DCAStrategy) calculateQuantity(price float64) float64 {
+	return d.config.InvestmentAmount / price
+}
+
+// updateMetrics обновляет метрики стратегии
+func (d *DCAStrategy) updateMetrics(order types.Order, price float64) {
+	d.metrics.TotalTrades++
+	d.metrics.TotalVolume += order.Quantity * price
+	d.metrics.LastUpdate = time.Now()
+
+	// В DCA стратегии мы не рассчитываем прибыль/убыток до продажи
+	// но можем отслеживать общий объем торгов
+}
+
+// GetConfig возвращает конфигурацию стратегии
+func (d *DCAStrategy) GetConfig() types.DCAConfig {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.config
+}
+
+// UpdateConfig обновляет конфигурацию стратегии
+func (d *DCAStrategy) UpdateConfig(config types.DCAConfig) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if err := d.validateConfig(config); err != nil {
+		return err
+	}
+
+	d.config = config
+	d.logger.Info("Конфигурация DCA стратегии обновлена")
+	return nil
+}
+
+// validateConfig проверяет конфигурацию
+func (d *DCAStrategy) validateConfig(config types.DCAConfig) error {
+	if config.Symbol == "" {
+		return fmt.Errorf("symbol is required")
+	}
+
+	if config.InvestmentAmount <= 0 {
+		return fmt.Errorf("investment amount must be positive")
+	}
+
+	if config.Interval <= 0 {
+		return fmt.Errorf("interval must be positive")
+	}
+
+	if config.MaxInvestments <= 0 {
+		return fmt.Errorf("max investments must be positive")
+	}
+
+	return nil
+}
+
+// GetStatus возвращает статус стратегии
+func (d *DCAStrategy) GetStatus() map[string]interface{} {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	return map[string]interface{}{
+		"enabled":           d.config.Enabled,
+		"symbol":            d.config.Symbol,
+		"buy_count":         d.buyCount,
+		"max_buys":          d.config.MaxInvestments,
+		"last_buy":          d.lastBuy,
+		"next_buy":          d.lastBuy.Add(d.config.Interval),
+		"interval":          d.config.Interval.String(),
+		"investment_amount": d.config.InvestmentAmount,
+	}
 }

@@ -1,0 +1,32 @@
+{
+  "app": {
+    "name": "crypto-dca-bot",
+    "version": "1.0.0",
+    "port": 8080,
+    "debug": false
+  },
+  "exchange": {
+    "name": "binance",
+    "api_key": "your-api-key-here",
+    "secret_key": "your-secret-key-here",
+    "passphrase": "",
+    "sandbox": true
+  },
+  "strategy": {
+    "dca": {
+      "symbol": "BTCUSDT",
+      "investment_amount": 100.0,
+      "interval": "24h",
+      "max_investments": 100,
+      "price_threshold": 0.0,
+      "stop_loss": 0.0,
+      "take_profit": 0.0,
+      "enabled": true
+    }
+  },
+  "logging": {
+    "level": "info",
+    "file": "logs/dca-bot.log",
+    "format": "text"
+  }
+} 

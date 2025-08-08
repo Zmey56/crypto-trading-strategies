@@ -2,9 +2,9 @@ package risk
 
 import (
 	"context"
-	"crypto-trading-strategies/internal/ai"
-	"crypto-trading-strategies/pkg/types"
 	"time"
+
+	"github.com/Zmey56/crypto-arbitrage-trader/pkg/types"
 )
 
 type AIRiskManager struct {
@@ -20,28 +20,28 @@ type VaRCalculator struct {
 	holdingPeriod   int     // days
 }
 
-// CalculateRisk использует Monte Carlo симуляции для VaR
+// CalculateRisk uses Monte Carlo simulations for VaR
 func (rm *AIRiskManager) CalculateRisk(
 	ctx context.Context,
 	portfolio *types.Portfolio,
 	market types.MarketData,
 ) (*RiskMetrics, error) {
 
-	// Value at Risk расчет
+	// Value at Risk calculation
 	var95 := rm.varCalculator.CalculateVaR(portfolio, 0.95)
 	var99 := rm.varCalculator.CalculateVaR(portfolio, 0.99)
 
 	// Conditional Value at Risk (Expected Shortfall)
 	cvar95 := rm.varCalculator.CalculateCVaR(portfolio, 0.95)
 
-	// Стресс-тестирование портфеля
+	// Portfolio stress testing
 	stressResults := rm.stressTestEngine.RunStressTests(portfolio, []StressScenario{
 		{Name: "2022_crypto_crash", MarketShock: -0.80},
 		{Name: "flash_crash", MarketShock: -0.30, Duration: time.Hour},
 		{Name: "liquidity_crisis", LiquidityImpact: 0.5},
 	})
 
-	// Детекция аномалий в торговых паттернах
+	// Anomaly detection in trading patterns
 	anomalies := rm.anomalyDetector.DetectAnomalies(portfolio.TradingHistory)
 
 	return &RiskMetrics{
@@ -61,7 +61,7 @@ type StressTestEngine struct {
 
 type StressScenario struct {
 	Name            string
-	MarketShock     float64       // процентное изменение цены
-	Duration        time.Duration // продолжительность шока
-	LiquidityImpact float64       // влияние на ликвидность
+	MarketShock     float64       // percent price change
+	Duration        time.Duration // shock duration
+	LiquidityImpact float64       // liquidity impact factor
 }

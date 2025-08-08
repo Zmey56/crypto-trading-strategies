@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-// Level представляет уровень логирования
+// Level is a logging verbosity level
 type Level int
 
 const (
@@ -17,13 +17,13 @@ const (
 	LevelFatal
 )
 
-// Logger представляет логгер
+// Logger is a minimal logger wrapper
 type Logger struct {
 	level  Level
 	logger *log.Logger
 }
 
-// New создает новый логгер
+// New creates a new logger writing to stdout
 func New(level Level) *Logger {
 	return &Logger{
 		level:  level,
@@ -31,7 +31,7 @@ func New(level Level) *Logger {
 	}
 }
 
-// NewWithFile создает логгер с записью в файл
+// NewWithFile creates a logger writing to a file
 func NewWithFile(level Level, filename string) (*Logger, error) {
 	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
@@ -44,35 +44,35 @@ func NewWithFile(level Level, filename string) (*Logger, error) {
 	}, nil
 }
 
-// Debug логирует отладочное сообщение
+// Debug logs a debug message
 func (l *Logger) Debug(format string, args ...interface{}) {
 	if l.level <= LevelDebug {
 		l.logger.Printf("[DEBUG] "+format, args...)
 	}
 }
 
-// Info логирует информационное сообщение
+// Info logs an info message
 func (l *Logger) Info(format string, args ...interface{}) {
 	if l.level <= LevelInfo {
 		l.logger.Printf("[INFO] "+format, args...)
 	}
 }
 
-// Warn логирует предупреждение
+// Warn logs a warning
 func (l *Logger) Warn(format string, args ...interface{}) {
 	if l.level <= LevelWarn {
 		l.logger.Printf("[WARN] "+format, args...)
 	}
 }
 
-// Error логирует ошибку
+// Error logs an error
 func (l *Logger) Error(format string, args ...interface{}) {
 	if l.level <= LevelError {
 		l.logger.Printf("[ERROR] "+format, args...)
 	}
 }
 
-// Fatal логирует критическую ошибку и завершает программу
+// Fatal logs a fatal error and exits
 func (l *Logger) Fatal(format string, args ...interface{}) {
 	if l.level <= LevelFatal {
 		l.logger.Printf("[FATAL] "+format, args...)
@@ -80,13 +80,13 @@ func (l *Logger) Fatal(format string, args ...interface{}) {
 	}
 }
 
-// WithFields создает логгер с дополнительными полями
+// WithFields returns the same logger; placeholder for structured logging
 func (l *Logger) WithFields(fields map[string]interface{}) *Logger {
 	// Простая реализация - в реальном проекте можно использовать структурированное логирование
 	return l
 }
 
-// SetLevel устанавливает уровень логирования
+// SetLevel adjusts logging verbosity level
 func (l *Logger) SetLevel(level Level) {
 	l.level = level
-} 
+}

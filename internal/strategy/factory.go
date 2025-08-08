@@ -1,24 +1,25 @@
 package strategy
 
 import (
-	"crypto-trading-strategies/internal/logger"
-	"crypto-trading-strategies/pkg/types"
 	"fmt"
+
+	"github.com/Zmey56/crypto-arbitrage-trader/internal/logger"
+	"github.com/Zmey56/crypto-arbitrage-trader/pkg/types"
 )
 
-// Factory представляет фабрику стратегий
+// Factory is a strategy factory
 type Factory struct {
 	logger *logger.Logger
 }
 
-// NewFactory создает новую фабрику стратегий
+// NewFactory creates a new strategy factory
 func NewFactory(logger *logger.Logger) *Factory {
 	return &Factory{
 		logger: logger,
 	}
 }
 
-// CreateDCA создает DCA стратегию
+// CreateDCA creates a DCA strategy
 func (f *Factory) CreateDCA(config types.DCAConfig, exchange types.ExchangeClient) (Strategy, error) {
 	if err := f.validateDCAConfig(config); err != nil {
 		return nil, fmt.Errorf("invalid DCA config: %w", err)
@@ -28,17 +29,19 @@ func (f *Factory) CreateDCA(config types.DCAConfig, exchange types.ExchangeClien
 	return strategy, nil
 }
 
-// CreateGrid создает Grid стратегию
+// CreateGrid creates a Grid strategy
 func (f *Factory) CreateGrid(config types.GridConfig, exchange types.ExchangeClient) (Strategy, error) {
 	if err := f.validateGridConfig(config); err != nil {
 		return nil, fmt.Errorf("invalid Grid config: %w", err)
 	}
-
-	// TODO: Реализовать Grid стратегию
-	return nil, fmt.Errorf("grid strategy not implemented yet")
+	gs, err := NewGridStrategy(config, exchange, f.logger)
+	if err != nil {
+		return nil, err
+	}
+	return gs, nil
 }
 
-// CreateCombo создает комбинированную стратегию
+// CreateCombo creates a combined strategy
 func (f *Factory) CreateCombo(config types.ComboConfig, exchange types.ExchangeClient) (Strategy, error) {
 	if err := f.validateComboConfig(config); err != nil {
 		return nil, fmt.Errorf("invalid Combo config: %w", err)
@@ -48,7 +51,7 @@ func (f *Factory) CreateCombo(config types.ComboConfig, exchange types.ExchangeC
 	return nil, fmt.Errorf("combo strategy not implemented yet")
 }
 
-// validateDCAConfig проверяет конфигурацию DCA стратегии
+// validateDCAConfig validates DCA configuration
 func (f *Factory) validateDCAConfig(config types.DCAConfig) error {
 	if config.Symbol == "" {
 		return fmt.Errorf("symbol is required")
@@ -69,7 +72,7 @@ func (f *Factory) validateDCAConfig(config types.DCAConfig) error {
 	return nil
 }
 
-// validateGridConfig проверяет конфигурацию Grid стратегии
+// validateGridConfig validates Grid configuration
 func (f *Factory) validateGridConfig(config types.GridConfig) error {
 	if config.Symbol == "" {
 		return fmt.Errorf("symbol is required")
@@ -90,7 +93,7 @@ func (f *Factory) validateGridConfig(config types.GridConfig) error {
 	return nil
 }
 
-// validateComboConfig проверяет конфигурацию комбинированной стратегии
+// validateComboConfig validates combined strategy configuration
 func (f *Factory) validateComboConfig(config types.ComboConfig) error {
 	if len(config.Strategies) == 0 {
 		return fmt.Errorf("at least one strategy is required")
@@ -107,4 +110,4 @@ func (f *Factory) validateComboConfig(config types.ComboConfig) error {
 	}
 
 	return nil
-} 
+}

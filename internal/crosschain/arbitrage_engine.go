@@ -2,7 +2,6 @@ package crosschain
 
 import (
 	"context"
-	"crypto-trading-strategies/pkg/types"
 	"fmt"
 	"sync"
 	"time"
@@ -40,7 +39,7 @@ type ArbitrageOpportunity struct {
 	GasFees         map[string]float64 `json:"gas_fees"`
 }
 
-// ScanArbitrageOpportunities ищет возможности арбитража между сетями
+// ScanArbitrageOpportunities searches for cross-chain arbitrage opportunities
 func (ace *CrossChainArbitrageEngine) ScanArbitrageOpportunities(
 	ctx context.Context,
 	tokens []string,
@@ -50,7 +49,7 @@ func (ace *CrossChainArbitrageEngine) ScanArbitrageOpportunities(
 	var wg sync.WaitGroup
 	opsChan := make(chan ArbitrageOpportunity, 100)
 
-	// Параллельное сканирование всех пар цепочек
+	// Parallel scan of all chain pairs
 	for _, token := range tokens {
 		for buyChain := range ace.dexes {
 			for sellChain := range ace.dexes {
@@ -71,13 +70,13 @@ func (ace *CrossChainArbitrageEngine) ScanArbitrageOpportunities(
 		}
 	}
 
-	// Закрытие канала после завершения всех горутин
+	// Close channel after all goroutines complete
 	go func() {
 		wg.Wait()
 		close(opsChan)
 	}()
 
-	// Сбор результатов
+	// Gather results
 	for opp := range opsChan {
 		opportunities = append(opportunities, opp)
 	}
@@ -85,13 +84,13 @@ func (ace *CrossChainArbitrageEngine) ScanArbitrageOpportunities(
 	return ace.filterAndRankOpportunities(opportunities), nil
 }
 
-// ExecuteArbitrage выполняет cross-chain арбитраж с использованием flash loans
+// ExecuteArbitrage performs cross-chain arbitrage using flash loans
 func (ace *CrossChainArbitrageEngine) ExecuteArbitrage(
 	ctx context.Context,
 	opportunity ArbitrageOpportunity,
 ) (*ArbitrageResult, error) {
 
-	// Получение flash loan для начального капитала
+	// Obtain a flash loan for initial capital
 	flashLoan, err := ace.flashLoaners[opportunity.BuyChain].RequestLoan(
 		ctx,
 		opportunity.TokenSymbol,
@@ -101,13 +100,13 @@ func (ace *CrossChainArbitrageEngine) ExecuteArbitrage(
 		return nil, fmt.Errorf("flash loan failed: %w", err)
 	}
 
-	// Выполнение арбитража в рамках одной транзакции
+	// Execute arbitrage within a single transaction
 	result := &ArbitrageResult{
 		OpportunityID: opportunity.ID,
 		StartTime:     time.Now(),
 	}
 
-	// Шаг 1: Покупка токена на исходной сети
+	// Step 1: Buy token on source chain
 	buyTx, err := ace.dexes[opportunity.BuyChain].BuyToken(
 		ctx,
 		opportunity.TokenSymbol,
@@ -118,7 +117,7 @@ func (ace *CrossChainArbitrageEngine) ExecuteArbitrage(
 	}
 	result.BuyTransaction = buyTx
 
-	// Шаг 2: Bridge токенов в целевую сеть
+	// Step 2: Bridge tokens to the destination chain
 	bridgeTx, err := ace.bridges[opportunity.BuyChain].Transfer(
 		ctx,
 		opportunity.TokenSymbol,
@@ -131,7 +130,7 @@ func (ace *CrossChainArbitrageEngine) ExecuteArbitrage(
 	}
 	result.BridgeTransaction = bridgeTx
 
-	// Шаг 3: Продажа токена на целевой сети
+	// Step 3: Sell token on destination chain
 	sellTx, err := ace.dexes[opportunity.SellChain].SellToken(
 		ctx,
 		opportunity.TokenSymbol,
@@ -142,7 +141,7 @@ func (ace *CrossChainArbitrageEngine) ExecuteArbitrage(
 	}
 	result.SellTransaction = sellTx
 
-	// Шаг 4: Возврат flash loan
+	// Step 4: Repay flash loan
 	repayment := flashLoan.Principal + flashLoan.Fee
 	if sellTx.ReceivedAmount < repayment {
 		return result, fmt.Errorf("insufficient funds to repay flash loan")

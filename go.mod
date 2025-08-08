@@ -1,4 +1,4 @@
-module crypto-trading-strategies
+module github.com/Zmey56/crypto-arbitrage-trader
 
 go 1.23.0
 

@@ -1,8 +1,9 @@
 package backtest
 
 import (
-	"crypto-trading-strategies/pkg/types"
 	"time"
+
+	"github.com/Zmey56/crypto-arbitrage-trader/pkg/types"
 )
 
 type StrategyComparison struct {
@@ -32,47 +33,36 @@ const (
 	HIGH_VOLATILITY MarketCondition = "high_vol"
 )
 
-// CompareStrategies выполняет сравнительный анализ стратегий
-func (engine *BacktestEngine) CompareStrategies(
-	symbol string,
-	startDate, endDate time.Time,
-	initialBalance float64,
-) (*StrategyComparison, error) {
+// CompareStrategies performs comparative analysis of strategies
+func (e *Engine) CompareStrategies(symbol string, candles []Candle, startDate, endDate time.Time, initialBalance float64, dcaCfg types.DCAConfig, gridCfg types.GridConfig) (*StrategyComparison, error) {
+	marketCondition := analyzeMarketCondition(candles, startDate, endDate)
+	dca := e.BacktestDCA(symbol, candles, startDate, endDate, dcaCfg, initialBalance)
+	grid := e.BacktestGrid(symbol, candles, startDate, endDate, gridCfg, initialBalance)
+	return &StrategyComparison{DCAResults: dca, GridResults: grid, Period: endDate.Sub(startDate), MarketType: marketCondition}, nil
+}
 
-	// Определение рыночных условий
-	marketCondition := engine.analyzeMarketCondition(symbol, startDate, endDate)
-
-	// Бэктест DCA стратегии
-	dcaConfig := &DCAConfig{
-		BaseOrderSize:     initialBalance * 0.1,
-		SafetyOrderSize:   initialBalance * 0.05,
-		SafetyOrdersCount: 5,
-		PriceDeviation:    3.0,
-		TakeProfitPercent: 2.0,
+func analyzeMarketCondition(candles []Candle, start, end time.Time) MarketCondition {
+	// Simple heuristic: last vs first close price
+	var first, last float64
+	for _, c := range candles {
+		if c.Time.Before(start) || c.Time.After(end) {
+			continue
+		}
+		if first == 0 {
+			first = c.Close
+		}
+		last = c.Close
 	}
-
-	dcaResults, err := engine.BacktestDCA(symbol, startDate, endDate, dcaConfig)
-	if err != nil {
-		return nil, err
+	if first == 0 {
+		return SIDEWAYS_MARKET
 	}
-
-	// Бэктест Grid стратегии
-	gridConfig := &GridConfig{
-		GridLevels:    20,
-		OrderSize:     initialBalance * 0.05,
-		GridType:      GEOMETRIC,
-		TakeProfitPct: 1.0,
+	chg := (last/first - 1)
+	switch {
+	case chg > 0.1:
+		return BULL_MARKET
+	case chg < -0.1:
+		return BEAR_MARKET
+	default:
+		return SIDEWAYS_MARKET
 	}
-
-	gridResults, err := engine.BacktestGrid(symbol, startDate, endDate, gridConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	return &StrategyComparison{
-		DCAResults:  dcaResults,
-		GridResults: gridResults,
-		Period:      endDate.Sub(startDate),
-		MarketType:  marketCondition,
-	}, nil
 }

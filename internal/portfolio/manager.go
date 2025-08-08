@@ -2,30 +2,31 @@ package portfolio
 
 import (
 	"context"
-	"crypto-trading-strategies/internal/logger"
-	"crypto-trading-strategies/pkg/types"
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/Zmey56/crypto-arbitrage-trader/internal/logger"
+	"github.com/Zmey56/crypto-arbitrage-trader/pkg/types"
 )
 
-// Manager представляет менеджер портфеля
+// Manager handles portfolio state and calculations
 type Manager struct {
 	exchange types.ExchangeClient
 	logger   *logger.Logger
 	mu       sync.RWMutex
 
-	// Портфель
+	// Portfolio data
 	portfolio *types.Portfolio
 	positions map[string]*types.Position
 
-	// Метрики
+	// Aggregated metrics
 	totalInvested float64
 	totalValue    float64
 	lastUpdate    time.Time
 }
 
-// NewManager создает новый менеджер портфеля
+// NewManager creates a new portfolio manager
 func NewManager(exchange types.ExchangeClient, logger *logger.Logger) *Manager {
 	return &Manager{
 		exchange:  exchange,
@@ -35,7 +36,7 @@ func NewManager(exchange types.ExchangeClient, logger *logger.Logger) *Manager {
 	}
 }
 
-// GetPortfolio возвращает текущий портфель
+// GetPortfolio returns the current portfolio snapshot
 func (m *Manager) GetPortfolio() *types.Portfolio {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -43,7 +44,7 @@ func (m *Manager) GetPortfolio() *types.Portfolio {
 	return m.portfolio
 }
 
-// GetPosition возвращает позицию по символу
+// GetPosition returns a position by symbol
 func (m *Manager) GetPosition(symbol string) (*types.Position, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -52,7 +53,7 @@ func (m *Manager) GetPosition(symbol string) (*types.Position, bool) {
 	return position, exists
 }
 
-// GetAllPositions возвращает все позиции
+// GetAllPositions returns all positions map
 func (m *Manager) GetAllPositions() map[string]*types.Position {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -65,7 +66,7 @@ func (m *Manager) GetAllPositions() map[string]*types.Position {
 	return positions
 }
 
-// UpdatePosition обновляет позицию
+// UpdatePosition updates position by applying an executed order
 func (m *Manager) UpdatePosition(order types.Order) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -75,51 +76,51 @@ func (m *Manager) UpdatePosition(order types.Order) error {
 
 	if !exists {
 		position = &types.Position{
-			Symbol:   symbol,
-			Quantity: 0,
-			AvgPrice: 0,
+			Symbol:    symbol,
+			Quantity:  0,
+			AvgPrice:  0,
 			Timestamp: time.Now(),
 		}
 		m.positions[symbol] = position
 	}
 
-	// Обновляем позицию в зависимости от типа ордера
+	// Update position depending on order side
 	switch order.Side {
 	case types.OrderSideBuy:
 		if order.Status == types.OrderStatusFilled {
-			// Вычисляем новую среднюю цену
+			// Recalculate average price
 			totalCost := position.Quantity*position.AvgPrice + order.FilledAmount*order.FilledPrice
 			totalQuantity := position.Quantity + order.FilledAmount
-			
+
 			if totalQuantity > 0 {
 				position.AvgPrice = totalCost / totalQuantity
 			}
-			
+
 			position.Quantity += order.FilledAmount
 			position.Timestamp = time.Now()
-			
-			m.logger.Info("Позиция обновлена (покупка): %s %.8f @ %.2f (средняя: %.2f)", 
+
+			m.logger.Info("Position updated (buy): %s %.8f @ %.2f (avg: %.2f)",
 				symbol, order.FilledAmount, order.FilledPrice, position.AvgPrice)
 		}
 
 	case types.OrderSideSell:
 		if order.Status == types.OrderStatusFilled {
-			// Вычисляем реализованную прибыль/убыток
+			// Compute realized PnL
 			if position.Quantity > 0 {
 				realizedPnL := (order.FilledPrice - position.AvgPrice) * order.FilledAmount
 				position.RealizedPnL += realizedPnL
-				
-				m.logger.Info("Реализован PnL: %s %.2f (%.2f - %.2f) * %.8f", 
+
+				m.logger.Info("Realized PnL: %s %.2f (%.2f - %.2f) * %.8f",
 					symbol, realizedPnL, order.FilledPrice, position.AvgPrice, order.FilledAmount)
 			}
-			
+
 			position.Quantity -= order.FilledAmount
 			position.Timestamp = time.Now()
-			
-			// Если позиция закрыта, удаляем её
+
+			// Remove position if fully closed
 			if position.Quantity <= 0 {
 				delete(m.positions, symbol)
-				m.logger.Info("Позиция закрыта: %s", symbol)
+				m.logger.Info("Position closed: %s", symbol)
 			}
 		}
 	}
@@ -127,22 +128,22 @@ func (m *Manager) UpdatePosition(order types.Order) error {
 	return nil
 }
 
-// RefreshPortfolio обновляет портфель с биржи
+// RefreshPortfolio syncs portfolio with exchange market data
 func (m *Manager) RefreshPortfolio(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Получаем баланс с биржи
+	// Fetch balance from exchange (unused in mock)
 	_, err := m.exchange.GetBalance(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get balance: %w", err)
 	}
 
-	// Обновляем позиции с текущими ценами
+	// Update positions with current prices
 	for symbol, position := range m.positions {
 		ticker, err := m.exchange.GetTicker(ctx, symbol)
 		if err != nil {
-			m.logger.Warn("Не удалось получить тикер для %s: %v", symbol, err)
+			m.logger.Warn("Failed to fetch ticker for %s: %v", symbol, err)
 			continue
 		}
 
@@ -151,14 +152,14 @@ func (m *Manager) RefreshPortfolio(ctx context.Context) error {
 		position.Timestamp = time.Now()
 	}
 
-	// Обновляем общие метрики портфеля
+	// Recompute aggregated portfolio metrics
 	m.updatePortfolioMetrics()
 
 	m.lastUpdate = time.Now()
 	return nil
 }
 
-// updatePortfolioMetrics обновляет метрики портфеля
+// updatePortfolioMetrics recomputes totals
 func (m *Manager) updatePortfolioMetrics() {
 	var totalValue, totalProfit, totalLoss float64
 
@@ -179,7 +180,7 @@ func (m *Manager) updatePortfolioMetrics() {
 	m.portfolio.NetProfit = totalProfit - totalLoss
 	m.portfolio.LastUpdate = time.Now()
 
-	// Обновляем список позиций
+	// Refresh positions slice
 	var positions []types.Position
 	for _, position := range m.positions {
 		positions = append(positions, *position)
@@ -187,22 +188,22 @@ func (m *Manager) updatePortfolioMetrics() {
 	m.portfolio.Positions = positions
 }
 
-// GetMetrics возвращает метрики портфеля
+// GetMetrics returns portfolio metrics summary
 func (m *Manager) GetMetrics() map[string]interface{} {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	return map[string]interface{}{
-		"total_value":    m.portfolio.TotalValue,
-		"total_profit":   m.portfolio.TotalProfit,
-		"total_loss":     m.portfolio.TotalLoss,
-		"net_profit":     m.portfolio.NetProfit,
+		"total_value":     m.portfolio.TotalValue,
+		"total_profit":    m.portfolio.TotalProfit,
+		"total_loss":      m.portfolio.TotalLoss,
+		"net_profit":      m.portfolio.NetProfit,
 		"positions_count": len(m.positions),
-		"last_update":    m.lastUpdate,
+		"last_update":     m.lastUpdate,
 	}
 }
 
-// GetPositionSummary возвращает сводку по позициям
+// GetPositionSummary returns human-friendly positions summary
 func (m *Manager) GetPositionSummary() []map[string]interface{} {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -223,7 +224,7 @@ func (m *Manager) GetPositionSummary() []map[string]interface{} {
 	return summary
 }
 
-// StartAutoRefresh запускает автоматическое обновление портфеля
+// StartAutoRefresh periodically refreshes portfolio metrics
 func (m *Manager) StartAutoRefresh(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -231,12 +232,12 @@ func (m *Manager) StartAutoRefresh(ctx context.Context, interval time.Duration) 
 	for {
 		select {
 		case <-ctx.Done():
-			m.logger.Info("Автообновление портфеля остановлено")
+			m.logger.Info("Portfolio auto-refresh stopped")
 			return
 		case <-ticker.C:
 			if err := m.RefreshPortfolio(ctx); err != nil {
-				m.logger.Error("Ошибка при обновлении портфеля: %v", err)
+				m.logger.Error("Portfolio refresh error: %v", err)
 			}
 		}
 	}
-} 
+}

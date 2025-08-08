@@ -1,8 +1,8 @@
 package strategy
 
 import (
-	"context"
-	"crypto-trading-strategies/pkg/types"
+    "context"
+    "github.com/Zmey56/crypto-arbitrage-trader/pkg/types"
 )
 
 type Strategy interface {

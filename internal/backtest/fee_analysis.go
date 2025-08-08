@@ -9,13 +9,13 @@ type FeeImpactAnalysis struct {
 	OptimalMinProfit float64 `json:"optimal_min_profit"`  // % per trade
 }
 
-// CalculateFeeImpact анализирует влияние комиссий на прибыльность
+// CalculateFeeImpact analyzes the impact of fees on profitability
 func CalculateFeeImpact(strategy string, monthlyTrades int, avgFee float64, monthlyReturn float64) *FeeImpactAnalysis {
 	monthlyFeeCost := float64(monthlyTrades) * avgFee
 	feeToReturnRatio := (monthlyFeeCost / monthlyReturn) * 100
 
-	// Минимальная прибыль для покрытия комиссий + риска
-	optimalMinProfit := (avgFee * 2.5) // 2.5x покрытие комиссий
+	// Minimum profit to cover fees and risk buffer (2.5x fee)
+	optimalMinProfit := (avgFee * 2.5)
 
 	return &FeeImpactAnalysis{
 		Strategy:         strategy,

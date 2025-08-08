@@ -2,22 +2,25 @@ package main
 
 import (
 	"context"
-	"crypto-trading-strategies/internal/config"
-	"crypto-trading-strategies/internal/logger"
-	"crypto-trading-strategies/internal/portfolio"
-	"crypto-trading-strategies/internal/strategy"
-	"crypto-trading-strategies/pkg/types"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/Zmey56/crypto-arbitrage-trader/internal/config"
+	"github.com/Zmey56/crypto-arbitrage-trader/internal/logger"
+	"github.com/Zmey56/crypto-arbitrage-trader/internal/portfolio"
+	"github.com/Zmey56/crypto-arbitrage-trader/internal/strategy"
+	"github.com/Zmey56/crypto-arbitrage-trader/pkg/types"
 )
 
 func main() {
 	// Парсим флаги командной строки
-	configFile := flag.String("config", "", "Путь к файлу конфигурации")
+	configFile := flag.String("config", "", "Path to config file")
 	flag.Parse()
 
 	// Загружаем конфигурацию
@@ -27,7 +30,7 @@ func main() {
 	if *configFile != "" {
 		cfg, err = config.Load(*configFile)
 		if err != nil {
-			fmt.Printf("Ошибка загрузки конфигурации: %v\n", err)
+			fmt.Printf("Failed to load config: %v\n", err)
 			os.Exit(1)
 		}
 	} else {
@@ -49,109 +52,109 @@ func main() {
 	if cfg.Logging.File != "" {
 		log, err = logger.NewWithFile(logLevel, cfg.Logging.File)
 		if err != nil {
-			fmt.Printf("Ошибка создания логгера: %v\n", err)
+			fmt.Printf("Failed to create logger: %v\n", err)
 			os.Exit(1)
 		}
 	} else {
 		log = logger.New(logLevel)
 	}
 
-	log.Info("🤖 DCA Bot запускается...")
-	log.Info("Версия: %s", cfg.App.Version)
-	log.Info("Биржа: %s", cfg.Exchange.Name)
-	log.Info("Символ: %s", cfg.Strategy.DCA.Symbol)
+	log.Info("🤖 DCA Bot starting...")
+	log.Info("Version: %s", cfg.App.Version)
+	log.Info("Exchange: %s", cfg.Exchange.Name)
+	log.Info("Symbol: %s", cfg.Strategy.DCA.Symbol)
 
 	// Создаем контекст с отменой
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Создаем mock exchange client (в реальном проекте здесь будет настоящий клиент)
+	// Create mock exchange client (use real client in production)
 	exchange := createMockExchange(cfg, log)
 
-	// Создаем менеджер портфеля
+	// Create portfolio manager
 	portfolioManager := portfolio.NewManager(exchange, log)
 
-	// Создаем фабрику стратегий
+	// Create strategy factory
 	strategyFactory := strategy.NewFactory(log)
 
-	// Создаем DCA стратегию
+	// Create DCA strategy
 	dcaStrategy, err := strategyFactory.CreateDCA(*cfg.Strategy.DCA, exchange)
 	if err != nil {
-		log.Error("Ошибка создания DCA стратегии: %v", err)
+		log.Error("Failed to create DCA strategy: %v", err)
 		os.Exit(1)
 	}
 
-	// Валидируем конфигурацию стратегии
+	// Validate strategy config
 	if err := dcaStrategy.ValidateConfig(); err != nil {
-		log.Error("Ошибка валидации конфигурации: %v", err)
+		log.Error("Strategy config validation error: %v", err)
 		os.Exit(1)
 	}
 
-	// Запускаем автообновление портфеля
+	// Start portfolio auto-refresh
 	go portfolioManager.StartAutoRefresh(ctx, 30*time.Second)
 
-	// Запускаем основной цикл торговли
+	// Start trading loop
 	go runTradingLoop(ctx, dcaStrategy, exchange, log, cfg.Strategy.DCA.Symbol)
 
-	// Обработка сигналов для graceful shutdown
+	// Handle OS signals for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// Запускаем HTTP сервер для мониторинга (опционально)
+	// Start HTTP server for monitoring (optional)
 	if cfg.App.Port > 0 {
 		go startHTTPServer(ctx, cfg, log, dcaStrategy, portfolioManager)
 	}
 
-	log.Info("DCA Bot успешно запущен и работает")
+	log.Info("DCA Bot started and running")
 
-	// Ждем сигнала завершения
+	// Wait for termination signal
 	<-sigChan
-	log.Info("Получен сигнал завершения, останавливаем бота...")
+	log.Info("Termination signal received, stopping bot...")
 
 	// Graceful shutdown
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
 
 	if err := dcaStrategy.Shutdown(shutdownCtx); err != nil {
-		log.Error("Ошибка при остановке стратегии: %v", err)
+		log.Error("Error stopping strategy: %v", err)
 	}
 
-	log.Info("DCA Bot остановлен")
+	log.Info("DCA Bot stopped")
 }
 
-// runTradingLoop запускает основной цикл торговли
+// runTradingLoop starts the main trading loop
 func runTradingLoop(ctx context.Context, strategy strategy.Strategy, exchange types.ExchangeClient, log *logger.Logger, symbol string) {
-	ticker := time.NewTicker(1 * time.Minute) // Проверяем каждую минуту
+	ticker := time.NewTicker(1 * time.Minute) // Check every minute
 	defer ticker.Stop()
 
-	log.Info("Запущен торговый цикл для %s", symbol)
+	log.Info("Trading loop started for %s", symbol)
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info("Торговый цикл остановлен")
+			log.Info("Trading loop stopped")
 			return
 		case <-ticker.C:
-			// Получаем рыночные данные
+			// Fetch market data
 			marketData, err := getMarketData(ctx, exchange, symbol)
 			if err != nil {
-				log.Error("Ошибка получения рыночных данных: %v", err)
+				log.Error("Failed to fetch market data: %v", err)
 				continue
 			}
 
-			// Выполняем стратегию
+			// Execute strategy
 			if err := strategy.Execute(ctx, marketData); err != nil {
-				log.Error("Ошибка выполнения стратегии: %v", err)
+				log.Error("Strategy execution error: %v", err)
 			}
 
-			// Логируем метрики
+			// Log metrics
 			metrics := strategy.GetMetrics()
 			log.Debug("Метрики стратегии: %+v", metrics)
 		}
 	}
 }
 
-// getMarketData получает рыночные данные
+// getMarketData fetches market data
 func getMarketData(ctx context.Context, exchange types.ExchangeClient, symbol string) (types.MarketData, error) {
 	ticker, err := exchange.GetTicker(ctx, symbol)
 	if err != nil {
@@ -210,8 +213,8 @@ func (m *MockExchangeClient) GetFilledOrders(ctx context.Context, symbol string)
 }
 
 func (m *MockExchangeClient) GetTicker(ctx context.Context, symbol string) (*types.Ticker, error) {
-	// Имитируем текущую цену BTC
-	price := 45000.0 + float64(time.Now().Unix()%1000) // Простая имитация колебаний цены
+	// Simulate a current BTC price
+	price := 45000.0 + float64(time.Now().Unix()%1000) // simple oscillation
 
 	return &types.Ticker{
 		Symbol:    symbol,
@@ -258,11 +261,114 @@ func (m *MockExchangeClient) Close() error {
 	return nil
 }
 
-// startHTTPServer запускает HTTP сервер для мониторинга
+// startHTTPServer runs the HTTP server for monitoring
 func startHTTPServer(ctx context.Context, cfg *config.Config, log *logger.Logger, strategy strategy.Strategy, portfolio *portfolio.Manager) {
-	// TODO: Реализовать HTTP сервер для мониторинга
-	log.Info("HTTP сервер запущен на порту %d", cfg.App.Port)
+	mux := http.NewServeMux()
+
+	writeJSON := func(w http.ResponseWriter, status int, v interface{}) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		_ = json.NewEncoder(w).Encode(v)
+	}
+
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	})
+
+	mux.HandleFunc("GET /portfolio", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, portfolio.GetPortfolio())
+	})
+
+	mux.HandleFunc("GET /strategy/status", func(w http.ResponseWriter, r *http.Request) {
+		// Try to get extended status if strategy supports it
+		type statusProvider interface{ GetStatus() map[string]interface{} }
+		if sp, ok := strategy.(statusProvider); ok {
+			writeJSON(w, http.StatusOK, sp.GetStatus())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"status": "no detailed status"})
+	})
+
+	mux.HandleFunc("POST /strategy/config", func(w http.ResponseWriter, r *http.Request) {
+		// Try to update DCA config if supported
+		type dcaConfigUpdater interface {
+			UpdateConfig(cfg types.DCAConfig) error
+		}
+		if up, ok := strategy.(dcaConfigUpdater); ok {
+			var partial map[string]interface{}
+			if err := json.NewDecoder(r.Body).Decode(&partial); err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+				return
+			}
+			// Current config; fetch via type assert if supported
+			type dcaConfigGetter interface{ GetConfig() types.DCAConfig }
+			if getter, ok := strategy.(dcaConfigGetter); ok {
+				current := getter.GetConfig()
+				// Применяем частичные поля
+				if v, ok := partial["investment_amount"].(float64); ok {
+					current.InvestmentAmount = v
+				}
+				if v, ok := partial["max_investments"].(float64); ok {
+					current.MaxInvestments = int(v)
+				}
+				if v, ok := partial["price_threshold"].(float64); ok {
+					current.PriceThreshold = v
+				}
+				if v, ok := partial["stop_loss"].(float64); ok {
+					current.StopLoss = v
+				}
+				if v, ok := partial["take_profit"].(float64); ok {
+					current.TakeProfit = v
+				}
+				if v, ok := partial["enabled"].(bool); ok {
+					current.Enabled = v
+				}
+				if v, ok := partial["interval"].(string); ok {
+					if d, err := time.ParseDuration(v); err == nil {
+						current.Interval = d
+					}
+				}
+				if err := up.UpdateConfig(current); err != nil {
+					writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+					return
+				}
+				writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
+				return
+			}
+		}
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "strategy does not support config updates"})
+	})
+
+	mux.HandleFunc("GET /metrics", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"strategy":  strategy.GetMetrics(),
+			"portfolio": portfolio.GetMetrics(),
+		})
+	})
+
+	srv := &http.Server{
+		Addr:    fmt.Sprintf(":%d", cfg.App.Port),
+		Handler: loggingMiddleware(log, mux),
+	}
+
+	go func() {
+		log.Info("HTTP сервер запущен на порту %d", cfg.App.Port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Error("HTTP server error: %v", err)
+		}
+	}()
 
 	<-ctx.Done()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = srv.Shutdown(shutdownCtx)
 	log.Info("HTTP сервер остановлен")
+}
+
+func loggingMiddleware(log *logger.Logger, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		next.ServeHTTP(w, r)
+		log.Info("%s %s %s", r.Method, r.URL.Path, time.Since(start))
+	})
 }

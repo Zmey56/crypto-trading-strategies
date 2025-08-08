@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// MarketData представляет рыночные данные
+// MarketData represents market data snapshot
 type MarketData struct {
 	Symbol    string
 	Price     float64
@@ -18,7 +18,7 @@ type MarketData struct {
 	Candles   []Candle
 }
 
-// Ticker представляет тикер с текущими ценами
+// Ticker represents current quote
 type Ticker struct {
 	Symbol    string
 	Price     float64
@@ -28,20 +28,20 @@ type Ticker struct {
 	Timestamp time.Time
 }
 
-// OrderBook представляет книгу ордеров
+// OrderBook represents order book
 type OrderBook struct {
 	Symbol string
 	Bids   []OrderBookEntry
 	Asks   []OrderBookEntry
 }
 
-// OrderBookEntry представляет запись в книге ордеров
+// OrderBookEntry represents an order book entry
 type OrderBookEntry struct {
 	Price  float64
 	Amount float64
 }
 
-// Candle представляет свечу
+// Candle represents a candle
 type Candle struct {
 	Symbol    string
 	Open      float64
@@ -52,7 +52,7 @@ type Candle struct {
 	Timestamp time.Time
 }
 
-// Order представляет торговый ордер
+// Order represents a trade order
 type Order struct {
 	ID            string
 	Symbol        string
@@ -67,7 +67,7 @@ type Order struct {
 	ExchangeOrder *ExchangeOrder
 }
 
-// OrderSide представляет сторону ордера
+// OrderSide represents order side
 type OrderSide string
 
 const (
@@ -75,7 +75,7 @@ const (
 	OrderSideSell OrderSide = "SELL"
 )
 
-// OrderType представляет тип ордера
+// OrderType represents order type
 type OrderType string
 
 const (
@@ -83,7 +83,7 @@ const (
 	OrderTypeLimit  OrderType = "LIMIT"
 )
 
-// OrderStatus представляет статус ордера
+// OrderStatus represents order status
 type OrderStatus string
 
 const (
@@ -94,14 +94,14 @@ const (
 	OrderStatusRejected        OrderStatus = "REJECTED"
 )
 
-// ExchangeOrder представляет ордер на бирже
+// ExchangeOrder represents an exchange-side order
 type ExchangeOrder struct {
 	ExchangeOrderID string
 	Exchange        string
 	ClientOrderID   string
 }
 
-// OrderUpdate представляет обновление ордера
+// OrderUpdate represents an order update
 type OrderUpdate struct {
 	OrderID       string
 	Status        OrderStatus
@@ -111,7 +111,7 @@ type OrderUpdate struct {
 	ExchangeOrder *ExchangeOrder
 }
 
-// Balance представляет баланс аккаунта
+// Balance represents account balance
 type Balance struct {
 	Asset     string
 	Free      float64
@@ -120,7 +120,7 @@ type Balance struct {
 	Timestamp time.Time
 }
 
-// TradingFees представляет торговые комиссии
+// TradingFees represents trading fees
 type TradingFees struct {
 	Symbol    string
 	MakerFee  float64
@@ -128,7 +128,7 @@ type TradingFees struct {
 	Timestamp time.Time
 }
 
-// Signal представляет торговый сигнал
+// Signal represents a trading signal
 type Signal struct {
 	Type      SignalType
 	Symbol    string
@@ -139,7 +139,7 @@ type Signal struct {
 	Metadata  map[string]interface{}
 }
 
-// SignalType представляет тип сигнала
+// SignalType represents signal type
 type SignalType string
 
 const (
@@ -148,7 +148,7 @@ const (
 	SignalTypeHold SignalType = "HOLD"
 )
 
-// StrategyMetrics представляет метрики стратегии
+// StrategyMetrics collects strategy performance counters
 type StrategyMetrics struct {
 	TotalTrades   int
 	WinningTrades int
@@ -165,7 +165,7 @@ type StrategyMetrics struct {
 	LastUpdate    time.Time
 }
 
-// DCAConfig представляет конфигурацию DCA стратегии
+// DCAConfig contains DCA parameters
 type DCAConfig struct {
 	Symbol           string        `json:"symbol"`
 	InvestmentAmount float64       `json:"investment_amount"`
@@ -177,7 +177,7 @@ type DCAConfig struct {
 	Enabled          bool          `json:"enabled"`
 }
 
-// UnmarshalJSON реализует кастомный парсинг JSON для DCAConfig
+// UnmarshalJSON implements custom parsing for interval
 func (d *DCAConfig) UnmarshalJSON(data []byte) error {
 	type Alias DCAConfig
 	aux := &struct {
@@ -202,7 +202,7 @@ func (d *DCAConfig) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// GridConfig представляет конфигурацию Grid стратегии
+// GridConfig contains Grid strategy parameters
 type GridConfig struct {
 	Symbol             string  `json:"symbol"`
 	UpperPrice         float64 `json:"upper_price"`
@@ -212,19 +212,19 @@ type GridConfig struct {
 	Enabled            bool    `json:"enabled"`
 }
 
-// ComboConfig представляет конфигурацию комбинированной стратегии
+// ComboConfig holds combined strategies configuration
 type ComboConfig struct {
 	Strategies []StrategyConfig `json:"strategies"`
 	Enabled    bool             `json:"enabled"`
 }
 
-// StrategyConfig представляет базовую конфигурацию стратегии
+// StrategyConfig describes a strategy envelope
 type StrategyConfig struct {
 	Type   string                 `json:"type"`
 	Config map[string]interface{} `json:"config"`
 }
 
-// Portfolio представляет портфель
+// Portfolio represents a portfolio snapshot
 type Portfolio struct {
 	TotalValue  float64
 	TotalProfit float64
@@ -234,7 +234,7 @@ type Portfolio struct {
 	LastUpdate  time.Time
 }
 
-// Position представляет позицию
+// Position represents a position
 type Position struct {
 	Symbol        string
 	Quantity      float64
@@ -245,7 +245,7 @@ type Position struct {
 	Timestamp     time.Time
 }
 
-// ExchangeClient представляет интерфейс для работы с биржей
+// ExchangeClient is the exchange interface used by strategies
 type ExchangeClient interface {
 	// Order management
 	PlaceOrder(ctx context.Context, order Order) error

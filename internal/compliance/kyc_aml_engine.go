@@ -2,7 +2,6 @@ package compliance
 
 import (
 	"context"
-	"crypto-trading-strategies/pkg/types"
 	"fmt"
 	"time"
 )
@@ -38,7 +37,7 @@ type ComplianceCheck struct {
 	Timestamp       time.Time          `json:"timestamp"`
 }
 
-// PerformComplianceCheck выполняет полную проверку соответствия
+// PerformComplianceCheck performs a full compliance check
 func (ce *ComplianceEngine) PerformComplianceCheck(
 	ctx context.Context,
 	customer Customer,
@@ -51,14 +50,14 @@ func (ce *ComplianceEngine) PerformComplianceCheck(
 		Timestamp:     time.Now(),
 	}
 
-	// KYC верификация
+	// KYC verification
 	kycResult, err := ce.kycProvider.VerifyIdentity(ctx, customer)
 	if err != nil {
 		return nil, fmt.Errorf("KYC verification failed: %w", err)
 	}
 	check.KYCStatus = kycResult.Status
 
-	// Проверка санкций
+	// Sanctions check
 	sanctionsHit, err := ce.amlMonitor.CheckSanctions(ctx, Entity{
 		Name:    customer.Name,
 		Address: customer.Address,
@@ -69,7 +68,7 @@ func (ce *ComplianceEngine) PerformComplianceCheck(
 	}
 	check.SanctionsHit = sanctionsHit
 
-	// AML мониторинг транзакции
+	// AML monitoring of the transaction
 	amlAlert, err := ce.amlMonitor.MonitorTransaction(ctx, transaction)
 	if err != nil {
 		return nil, fmt.Errorf("AML monitoring failed: %w", err)
@@ -78,7 +77,7 @@ func (ce *ComplianceEngine) PerformComplianceCheck(
 	if amlAlert != nil {
 		check.AMLRisk = amlAlert.RiskLevel
 
-		// Генерация SAR если необходимо
+		// Generate SAR if necessary
 		if amlAlert.RiskLevel >= RiskLevelHigh {
 			sar, err := ce.amlMonitor.GenerateSAR(ctx, *amlAlert)
 			if err != nil {
@@ -93,7 +92,7 @@ func (ce *ComplianceEngine) PerformComplianceCheck(
 		}
 	}
 
-	// Расчет общего риск-скора
+	// Compute overall risk score
 	check.RiskScore = ce.riskScorer.CalculateRiskScore(RiskFactors{
 		KYCStatus:         check.KYCStatus,
 		AMLRisk:           check.AMLRisk,

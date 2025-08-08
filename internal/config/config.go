@@ -1,14 +1,15 @@
 package config
 
 import (
-	"crypto-trading-strategies/pkg/types"
 	"encoding/json"
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/Zmey56/crypto-arbitrage-trader/pkg/types"
 )
 
-// Config представляет основную конфигурацию приложения
+// Config is the main application configuration
 type Config struct {
 	App      AppConfig      `json:"app"`
 	Exchange ExchangeConfig `json:"exchange"`
@@ -16,7 +17,7 @@ type Config struct {
 	Logging  LoggingConfig  `json:"logging"`
 }
 
-// AppConfig представляет конфигурацию приложения
+// AppConfig describes application settings
 type AppConfig struct {
 	Name    string `json:"name"`
 	Version string `json:"version"`
@@ -24,7 +25,7 @@ type AppConfig struct {
 	Debug   bool   `json:"debug"`
 }
 
-// ExchangeConfig представляет конфигурацию биржи
+// ExchangeConfig describes exchange settings
 type ExchangeConfig struct {
 	Name       string `json:"name"`
 	APIKey     string `json:"api_key"`
@@ -33,20 +34,20 @@ type ExchangeConfig struct {
 	Sandbox    bool   `json:"sandbox"`
 }
 
-// StrategyConfig представляет конфигурацию стратегий
+// StrategyConfig groups strategy configurations
 type StrategyConfig struct {
 	DCA  *types.DCAConfig  `json:"dca"`
 	Grid *types.GridConfig `json:"grid"`
 }
 
-// LoggingConfig представляет конфигурацию логирования
+// LoggingConfig describes logging configuration
 type LoggingConfig struct {
 	Level  string `json:"level"`
 	File   string `json:"file"`
 	Format string `json:"format"`
 }
 
-// Load загружает конфигурацию из файла
+// Load reads configuration from a JSON file
 func Load(filename string) (*Config, error) {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -66,7 +67,7 @@ func Load(filename string) (*Config, error) {
 	return &config, nil
 }
 
-// LoadFromEnv загружает конфигурацию из переменных окружения
+// LoadFromEnv populates configuration from environment variables
 func LoadFromEnv() *Config {
 	return &Config{
 		App: AppConfig{
@@ -102,7 +103,7 @@ func LoadFromEnv() *Config {
 	}
 }
 
-// Validate проверяет корректность конфигурации
+// Validate validates configuration correctness
 func (c *Config) Validate() error {
 	if c.App.Name == "" {
 		return fmt.Errorf("app name is required")
@@ -123,7 +124,7 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// Save сохраняет конфигурацию в файл
+// Save writes configuration to a JSON file
 func (c *Config) Save(filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
@@ -140,7 +141,7 @@ func (c *Config) Save(filename string) error {
 	return nil
 }
 
-// Вспомогательные функции для работы с переменными окружения
+// Helpers for reading environment variables
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
@@ -185,4 +186,4 @@ func getEnvAsDuration(key string, defaultValue time.Duration) time.Duration {
 		}
 	}
 	return defaultValue
-} 
+}

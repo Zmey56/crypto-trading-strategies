@@ -2,13 +2,14 @@ package strategy
 
 import (
 	"context"
-	"crypto-trading-strategies/internal/logger"
-	"crypto-trading-strategies/pkg/types"
 	"testing"
 	"time"
+
+	"github.com/Zmey56/crypto-arbitrage-trader/internal/logger"
+	"github.com/Zmey56/crypto-arbitrage-trader/pkg/types"
 )
 
-// MockExchangeClient для тестирования
+// MockExchangeClient for testing
 type MockExchangeClient struct {
 	orders []types.Order
 }
@@ -242,7 +243,7 @@ func TestDCAStrategy_Execute(t *testing.T) {
 		t.Errorf("Execute() error = %v", err)
 	}
 
-	// Проверяем, что ордер был размещен
+	// Verify that an order was placed
 	if len(exchange.orders) != 1 {
 		t.Errorf("Expected 1 order, got %d", len(exchange.orders))
 	}
@@ -338,4 +339,4 @@ func TestDCAStrategy_GetStatus(t *testing.T) {
 	if status["max_buys"] != 100 {
 		t.Errorf("Expected max buys 100, got %v", status["max_buys"])
 	}
-} 
+}

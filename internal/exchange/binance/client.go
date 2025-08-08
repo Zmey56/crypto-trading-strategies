@@ -1,14 +1,14 @@
 package binance
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"time"
+    "context"
+    "encoding/json"
+    "fmt"
+    "net/http"
+    "time"
 
-	"crypto-trading-strategies/pkg/types"
-	"golang.org/x/time/rate"
+    "github.com/Zmey56/crypto-arbitrage-trader/pkg/types"
+    "golang.org/x/time/rate"
 )
 
 type Client struct {

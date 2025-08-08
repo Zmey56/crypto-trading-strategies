@@ -2,14 +2,15 @@ package strategy
 
 import (
 	"context"
-	"crypto-trading-strategies/internal/logger"
-	"crypto-trading-strategies/pkg/types"
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/Zmey56/crypto-arbitrage-trader/internal/logger"
+	"github.com/Zmey56/crypto-arbitrage-trader/pkg/types"
 )
 
-// DCAStrategy представляет DCA стратегию
+// DCAStrategy implements a basic Dollar-Cost Averaging strategy
 type DCAStrategy struct {
 	config   types.DCAConfig
 	exchange types.ExchangeClient
@@ -22,7 +23,7 @@ type DCAStrategy struct {
 	cancel   context.CancelFunc
 }
 
-// NewDCAStrategy создает новую DCA стратегию
+// NewDCAStrategy creates a new DCA strategy instance
 func NewDCAStrategy(config types.DCAConfig, exchange types.ExchangeClient, logger *logger.Logger) *DCAStrategy {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -38,33 +39,33 @@ func NewDCAStrategy(config types.DCAConfig, exchange types.ExchangeClient, logge
 	}
 }
 
-// Execute выполняет DCA стратегию
+// Execute runs the DCA logic
 func (d *DCAStrategy) Execute(ctx context.Context, market types.MarketData) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	// Проверяем, включена ли стратегия
+	// Check if strategy is enabled
 	if !d.config.Enabled {
 		return nil
 	}
 
-	// Проверяем интервал между покупками
+	// Enforce interval between buys
 	if time.Since(d.lastBuy) < d.config.Interval {
 		return nil
 	}
 
-	// Проверяем максимальное количество инвестиций
+	// Respect max number of investments
 	if d.buyCount >= d.config.MaxInvestments {
 		d.logger.Info("Достигнуто максимальное количество инвестиций для %s", d.config.Symbol)
 		return nil
 	}
 
-	// Проверяем условия для покупки
+	// Optional price threshold
 	if d.config.PriceThreshold > 0 && market.Price > d.config.PriceThreshold {
 		return nil
 	}
 
-	// Выполняем покупку
+	// Execute buy
 	if err := d.executeBuy(ctx, market); err != nil {
 		d.logger.Error("Ошибка при выполнении покупки: %v", err)
 		return err
@@ -73,12 +74,12 @@ func (d *DCAStrategy) Execute(ctx context.Context, market types.MarketData) erro
 	return nil
 }
 
-// GetSignal генерирует торговый сигнал
+// GetSignal produces a trading signal (for observability)
 func (d *DCAStrategy) GetSignal(market types.MarketData) types.Signal {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	// Проверяем порог цены
+	// Check threshold
 	if d.config.PriceThreshold > 0 && market.Price > d.config.PriceThreshold {
 		return types.Signal{
 			Type:      types.SignalTypeHold,
@@ -88,7 +89,7 @@ func (d *DCAStrategy) GetSignal(market types.MarketData) types.Signal {
 		}
 	}
 
-	// Проверяем интервал
+	// Check interval
 	if time.Since(d.lastBuy) < d.config.Interval {
 		return types.Signal{
 			Type:      types.SignalTypeHold,
@@ -98,7 +99,7 @@ func (d *DCAStrategy) GetSignal(market types.MarketData) types.Signal {
 		}
 	}
 
-	// Проверяем максимальное количество инвестиций
+	// Check max investments
 	if d.buyCount >= d.config.MaxInvestments {
 		return types.Signal{
 			Type:      types.SignalTypeHold,
@@ -122,7 +123,7 @@ func (d *DCAStrategy) GetSignal(market types.MarketData) types.Signal {
 	}
 }
 
-// ValidateConfig проверяет корректность конфигурации
+// ValidateConfig validates configuration
 func (d *DCAStrategy) ValidateConfig() error {
 	if d.config.Symbol == "" {
 		return fmt.Errorf("symbol is required")
@@ -143,7 +144,7 @@ func (d *DCAStrategy) ValidateConfig() error {
 	return nil
 }
 
-// GetMetrics возвращает метрики стратегии
+// GetMetrics returns strategy metrics snapshot
 func (d *DCAStrategy) GetMetrics() types.StrategyMetrics {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
@@ -151,14 +152,14 @@ func (d *DCAStrategy) GetMetrics() types.StrategyMetrics {
 	return *d.metrics
 }
 
-// Shutdown завершает работу стратегии
+// Shutdown gracefully stops the strategy
 func (d *DCAStrategy) Shutdown(ctx context.Context) error {
 	d.cancel()
 	d.logger.Info("DCA стратегия остановлена")
 	return nil
 }
 
-// executeBuy выполняет покупку
+// executeBuy places a market buy and updates metrics
 func (d *DCAStrategy) executeBuy(ctx context.Context, market types.MarketData) error {
 	quantity := d.calculateQuantity(market.Price)
 
@@ -179,7 +180,7 @@ func (d *DCAStrategy) executeBuy(ctx context.Context, market types.MarketData) e
 		return fmt.Errorf("failed to place order: %w", err)
 	}
 
-	// Обновляем метрики
+	// Update metrics
 	d.lastBuy = time.Now()
 	d.buyCount++
 	d.updateMetrics(order, market.Price)
@@ -190,29 +191,28 @@ func (d *DCAStrategy) executeBuy(ctx context.Context, market types.MarketData) e
 	return nil
 }
 
-// calculateQuantity вычисляет количество для покупки
+// calculateQuantity computes buy quantity by fixed investment amount
 func (d *DCAStrategy) calculateQuantity(price float64) float64 {
 	return d.config.InvestmentAmount / price
 }
 
-// updateMetrics обновляет метрики стратегии
+// updateMetrics updates strategy metrics counters
 func (d *DCAStrategy) updateMetrics(order types.Order, price float64) {
 	d.metrics.TotalTrades++
 	d.metrics.TotalVolume += order.Quantity * price
 	d.metrics.LastUpdate = time.Now()
 
-	// В DCA стратегии мы не рассчитываем прибыль/убыток до продажи
-	// но можем отслеживать общий объем торгов
+	// In DCA we do not compute PnL until selling; track total volume only
 }
 
-// GetConfig возвращает конфигурацию стратегии
+// GetConfig returns current strategy config
 func (d *DCAStrategy) GetConfig() types.DCAConfig {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	return d.config
 }
 
-// UpdateConfig обновляет конфигурацию стратегии
+// UpdateConfig updates strategy config with validation
 func (d *DCAStrategy) UpdateConfig(config types.DCAConfig) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -226,7 +226,7 @@ func (d *DCAStrategy) UpdateConfig(config types.DCAConfig) error {
 	return nil
 }
 
-// validateConfig проверяет конфигурацию
+// validateConfig validates config struct
 func (d *DCAStrategy) validateConfig(config types.DCAConfig) error {
 	if config.Symbol == "" {
 		return fmt.Errorf("symbol is required")
@@ -247,7 +247,7 @@ func (d *DCAStrategy) validateConfig(config types.DCAConfig) error {
 	return nil
 }
 
-// GetStatus возвращает статус стратегии
+// GetStatus returns strategy status map for API
 func (d *DCAStrategy) GetStatus() map[string]interface{} {
 	d.mu.RLock()
 	defer d.mu.RUnlock()

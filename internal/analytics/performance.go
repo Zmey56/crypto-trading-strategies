@@ -10,7 +10,7 @@ type PerformanceTracker struct {
 	collector  *metrics.Collector
 	alerter    *AlertManager
 
-	// Ключевые метрики производительности
+	// Key performance indicators
 	kpiTargets map[string]float64
 }
 
@@ -22,12 +22,12 @@ type StrategyMetrics struct {
 	WinRate          float64 `json:"win_rate"`
 	ProfitFactor     float64 `json:"profit_factor"`
 
-	// Метрики риска
+	// Risk metrics
 	VaR95      float64 `json:"var_95"`
 	CVaR95     float64 `json:"cvar_95"`
 	Volatility float64 `json:"volatility"`
 
-	// Операционные метрики
+	// Operational metrics
 	TradeCount       int     `json:"trade_count"`
 	AvgTradeSize     float64 `json:"avg_trade_size"`
 	TradingFrequency float64 `json:"trading_frequency"`
@@ -52,7 +52,7 @@ func (pt *PerformanceTracker) GeneratePerformanceReport(
 		RiskAssessment:  pt.assessRisk(metrics),
 	}
 
-	// Проверка на соответствие KPI targets
+	// Check KPI targets
 	if metrics.SharpeRatio < pt.kpiTargets["min_sharpe"] {
 		report.Alerts = append(report.Alerts, Alert{
 			Type:     "performance",

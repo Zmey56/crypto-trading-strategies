@@ -2,8 +2,9 @@ package ai
 
 import (
 	"context"
-	"crypto-trading-strategies/pkg/nlp"
 	"time"
+
+	"github.com/Zmey56/crypto-arbitrage-trader/pkg/nlp"
 )
 
 type SentimentAnalyzer struct {
@@ -21,7 +22,7 @@ type SentimentData struct {
 	Volume     int       `json:"mention_volume"`
 }
 
-// AnalyzeMarketSentiment обрабатывает множественные источники данных
+// AnalyzeMarketSentiment processes multiple data sources concurrently
 func (sa *SentimentAnalyzer) AnalyzeMarketSentiment(
 	ctx context.Context,
 	symbol string,
@@ -30,7 +31,7 @@ func (sa *SentimentAnalyzer) AnalyzeMarketSentiment(
 
 	var sentiments []SentimentData
 
-	// Параллельная обработка множественных источников
+	// Process multiple sources in parallel
 	for sourceName, source := range sa.dataSources {
 		go func(name string, src DataSource) {
 			data, err := src.FetchData(ctx, symbol, timeframe)
@@ -59,17 +60,17 @@ type DataSource interface {
 	FetchData(ctx context.Context, symbol string, timeframe time.Duration) ([]string, error)
 }
 
-// TwitterSource реализует анализ Twitter/X данных
+// TwitterSource analyzes Twitter/X data
 type TwitterSource struct {
 	apiClient *TwitterAPI
 }
 
-// NewsSource обрабатывает финансовые новости
+// NewsSource processes financial news
 type NewsSource struct {
 	feeds []NewsFeed
 }
 
-// RedditSource анализирует обсуждения на Reddit
+// RedditSource analyzes Reddit discussions
 type RedditSource struct {
 	subreddits []string
 }

@@ -12,7 +12,7 @@ type PsychologicalMetrics struct {
 	OverallSatisfaction  float64   `json:"satisfaction"`         // 1-10 scale
 }
 
-// EvaluatePsychologicalImpact оценивает психологическое воздействие стратегии
+// EvaluatePsychologicalImpact estimates the psychological impact of a strategy
 func EvaluatePsychologicalImpact(strategy string, userProfile UserProfile) *PsychologicalMetrics {
 	var stress, monitoring, fatigue, sleepImpact, satisfaction float64
 
@@ -32,7 +32,7 @@ func EvaluatePsychologicalImpact(strategy string, userProfile UserProfile) *Psyc
 		satisfaction = 7.2
 	}
 
-	// Корректировка на основе профиля пользователя
+    // Adjust based on user profile
 	if userProfile.ExperienceLevel == "BEGINNER" {
 		stress += 2.0
 		fatigue += 1.5

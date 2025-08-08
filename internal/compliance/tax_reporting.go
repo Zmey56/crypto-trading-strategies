@@ -41,14 +41,14 @@ const (
 	EventTypeFork
 )
 
-// GenerateTaxReport создает автоматический налоговый отчет
+// GenerateTaxReport creates an automated tax report
 func (tre *TaxReportingEngine) GenerateTaxReport(
 	ctx context.Context,
 	userID string,
 	taxYear int,
 ) (*TaxReport, error) {
 
-	// Получение всех транзакций за налоговый год
+    // Fetch all transactions for the tax year
 	transactions, err := tre.getTransactionsForYear(ctx, userID, taxYear)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get transactions: %w", err)
@@ -56,13 +56,13 @@ func (tre *TaxReportingEngine) GenerateTaxReport(
 
 	var taxableEvents []TaxableEvent
 
-	// Обработка каждой транзакции
+    // Process each transaction
 	for _, tx := range transactions {
 		events := tre.processTransaction(tx)
 		taxableEvents = append(taxableEvents, events...)
 	}
 
-	// Расчет налоговых обязательств
+    // Compute tax obligations and summary
 	report := &TaxReport{
 		UserID:        userID,
 		TaxYear:       taxYear,

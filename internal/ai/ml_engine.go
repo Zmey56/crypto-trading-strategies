@@ -2,9 +2,10 @@ package ai
 
 import (
 	"context"
-	"crypto-trading-strategies/internal/indicators"
-	"crypto-trading-strategies/pkg/types"
 	"fmt"
+
+	"github.com/Zmey56/crypto-arbitrage-trader/pkg/indicators"
+	"github.com/Zmey56/crypto-arbitrage-trader/pkg/types"
 )
 
 type MLEngine struct {
@@ -20,17 +21,16 @@ type ReinforcementLearning struct {
 	strategy  Strategy
 }
 
-// AdaptToMarketConditions использует reinforcement learning для
-// непрерывного улучшения стратегии
+// AdaptToMarketConditions uses reinforcement learning for continuous improvement
 func (ml *MLEngine) AdaptToMarketConditions(
 	ctx context.Context,
 	market types.MarketData,
 ) (*OptimizedStrategy, error) {
 
-	// Определение текущего рыночного режима
+	// Detect current market regime
 	regime := ml.regimeDetector.ClassifyMarket(market)
 
-	// Walk-forward оптимизация параметров
+	// Walk-forward parameters optimization
 	optimizedParams, err := ml.walkForward.OptimizeParams(
 		market.Candles,
 		regime,
@@ -39,7 +39,7 @@ func (ml *MLEngine) AdaptToMarketConditions(
 		return nil, fmt.Errorf("walk-forward optimization failed: %w", err)
 	}
 
-	// Динамическое изменение размера позиций
+	// Dynamic position sizing
 	dynamicSizing := ml.calculateDynamicPositionSizing(market, regime)
 
 	return &OptimizedStrategy{

@@ -2,9 +2,11 @@ package exchange
 
 import (
 	"context"
-	"crypto-trading-strategies/pkg/types"
 	"fmt"
 	"strings"
+
+	"github.com/Zmey56/crypto-arbitrage-trader/internal/logger"
+	"github.com/Zmey56/crypto-arbitrage-trader/pkg/types"
 )
 
 type Client interface {
@@ -24,9 +26,7 @@ type Client interface {
 	GetBalance(ctx context.Context) (*types.Balance, error)
 	GetTradingFees(ctx context.Context, symbol string) (*types.TradingFees, error)
 
-	// WebSocket streams
-	SubscribeToTickers(ctx context.Context, symbols []string) (<-chan types.Ticker, error)
-	SubscribeToOrderUpdates(ctx context.Context) (<-chan types.OrderUpdate, error)
+	// WebSocket streams (omitted in demo)
 
 	// Connection management
 	Ping(ctx context.Context) error
@@ -71,11 +71,7 @@ func NewUnifiedClient(configs []ExchangeConfig) (*UnifiedClient, error) {
 func createExchangeClient(config ExchangeConfig) (Client, error) {
 	switch strings.ToLower(config.Name) {
 	case "binance":
-		return binance.NewClient(config)
-	case "kraken":
-		return kraken.NewClient(config)
-	case "coinbase":
-		return coinbase.NewClient(config)
+		return nil, fmt.Errorf("binance client not included in demo build")
 	default:
 		return nil, fmt.Errorf("unsupported exchange: %s", config.Name)
 	}

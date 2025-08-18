@@ -1,0 +1,30 @@
+{
+  "app": {
+    "name": "crypto-grid-bot",
+    "version": "1.0.0",
+    "port": 8081,
+    "debug": false
+  },
+  "exchange": {
+    "name": "binance",
+    "api_key": "your-api-key-here",
+    "secret_key": "your-secret-key-here",
+    "passphrase": "",
+    "sandbox": true
+  },
+  "strategy": {
+    "grid": {
+      "symbol": "BTCUSDT",
+      "upper_price": 50000.0,
+      "lower_price": 40000.0,
+      "grid_levels": 20,
+      "investment_per_level": 100.0,
+      "enabled": true
+    }
+  },
+  "logging": {
+    "level": "info",
+    "file": "logs/grid-bot.log",
+    "format": "text"
+  }
+}

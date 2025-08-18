@@ -1,8 +1,9 @@
 package strategy
 
 import (
-    "context"
-    "github.com/Zmey56/crypto-arbitrage-trader/pkg/types"
+	"context"
+
+	"github.com/Zmey56/crypto-arbitrage-trader/pkg/types"
 )
 
 type Strategy interface {
@@ -10,6 +11,7 @@ type Strategy interface {
 	GetSignal(market types.MarketData) types.Signal
 	ValidateConfig() error
 	GetMetrics() types.StrategyMetrics
+	GetStatus() map[string]interface{}
 	Shutdown(ctx context.Context) error
 }
 

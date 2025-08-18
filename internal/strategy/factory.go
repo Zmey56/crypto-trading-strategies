@@ -34,11 +34,9 @@ func (f *Factory) CreateGrid(config types.GridConfig, exchange types.ExchangeCli
 	if err := f.validateGridConfig(config); err != nil {
 		return nil, fmt.Errorf("invalid Grid config: %w", err)
 	}
-	gs, err := NewGridStrategy(config, exchange, f.logger)
-	if err != nil {
-		return nil, err
-	}
-	return gs, nil
+
+	strategy := NewGridStrategy(config, exchange, f.logger)
+	return strategy, nil
 }
 
 // CreateCombo creates a combined strategy

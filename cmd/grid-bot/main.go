@@ -95,25 +95,49 @@ func main() {
 
 // общий цикл и HTTP сервер идентичны DCA боту
 func runTradingLoop(ctx context.Context, strategy strategy.Strategy, exchange types.ExchangeClient, log *logger.Logger, symbol string) {
-	ticker := time.NewTicker(1 * time.Minute)
+	ticker := time.NewTicker(30 * time.Second) // Уменьшаем интервал для более частого обновления
 	defer ticker.Stop()
-	log.Info("Trading loop started for %s", symbol)
+	log.Info("🔄 Trading loop started for %s", symbol)
+
+	// Выполняем первую итерацию сразу
+	if err := executeStrategyIteration(ctx, strategy, exchange, log, symbol); err != nil {
+		log.Error("Initial strategy execution error: %v", err)
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info("Trading loop stopped")
+			log.Info("🛑 Trading loop stopped")
 			return
 		case <-ticker.C:
-			marketData, err := getMarketData(ctx, exchange, symbol)
-			if err != nil {
-				log.Error("Failed to fetch market data: %v", err)
-				continue
-			}
-			if err := strategy.Execute(ctx, marketData); err != nil {
+			if err := executeStrategyIteration(ctx, strategy, exchange, log, symbol); err != nil {
 				log.Error("Strategy execution error: %v", err)
 			}
 		}
 	}
+}
+
+func executeStrategyIteration(ctx context.Context, strategy strategy.Strategy, exchange types.ExchangeClient, log *logger.Logger, symbol string) error {
+	marketData, err := getMarketData(ctx, exchange, symbol)
+	if err != nil {
+		return fmt.Errorf("failed to fetch market data: %w", err)
+	}
+
+	log.Debug("📊 Market data: %s @ %.2f (volume: %.2f)",
+		marketData.Symbol, marketData.Price, marketData.Volume)
+
+	if err := strategy.Execute(ctx, marketData); err != nil {
+		return fmt.Errorf("strategy execution failed: %w", err)
+	}
+
+	// Логируем статус стратегии каждые 5 минут
+	if time.Now().Second() < 30 {
+		status := strategy.GetStatus()
+		log.Info("📈 Strategy status: %d active orders, %d total trades",
+			status["active_orders"], status["total_trades"])
+	}
+
+	return nil
 }
 
 func getMarketData(ctx context.Context, exchange types.ExchangeClient, symbol string) (types.MarketData, error) {

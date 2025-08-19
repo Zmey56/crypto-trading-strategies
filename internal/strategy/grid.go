@@ -3,6 +3,7 @@ package strategy
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -10,339 +11,138 @@ import (
 	"github.com/Zmey56/crypto-arbitrage-trader/pkg/types"
 )
 
-// GridStrategy представляет Grid торговую стратегию
+// GridStrategy is a simple grid trading implementation with evenly spaced levels
 type GridStrategy struct {
-	config      types.GridConfig
-	exchange    types.ExchangeClient
-	logger      *logger.Logger
-	metrics     *types.StrategyMetrics
-	gridLevels  []float64
-	activeOrders map[string]types.Order
-	mu          sync.RWMutex
-	ctx         context.Context
-	cancel      context.CancelFunc
+	config   types.GridConfig
+	exchange types.ExchangeClient
+	logger   *logger.Logger
+
+	mu        sync.RWMutex
+	levels    []float64                // sorted levels (low -> high)
+	positions map[float64]gridPosition // position size per level
+
+	metrics types.StrategyMetrics
 }
 
-// NewGridStrategy создает новую Grid стратегию
-func NewGridStrategy(config types.GridConfig, exchange types.ExchangeClient, logger *logger.Logger) *GridStrategy {
-	ctx, cancel := context.WithCancel(context.Background())
-	
-	strategy := &GridStrategy{
-		config:       config,
-		exchange:     exchange,
-		logger:       logger,
-		metrics: &types.StrategyMetrics{
-			LastUpdate: time.Now(),
-		},
-		activeOrders: make(map[string]types.Order),
-		ctx:          ctx,
-		cancel:       cancel,
-	}
-	
-	strategy.calculateGridLevels()
-	return strategy
+type gridPosition struct {
+	quantity float64
+	avgPrice float64
 }
 
-// Execute выполняет Grid стратегию
-func (g *GridStrategy) Execute(ctx context.Context, market types.MarketData) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	// Проверяем, включена ли стратегия
-	if !g.config.Enabled {
-		return nil
+func NewGridStrategy(config types.GridConfig, exchange types.ExchangeClient, logger *logger.Logger) (*GridStrategy, error) {
+	if config.GridLevels < 2 {
+		return nil, fmt.Errorf("grid levels must be >= 2")
 	}
-
-	// Проверяем, находится ли цена в диапазоне сетки
-	if market.Price < g.config.LowerPrice || market.Price > g.config.UpperPrice {
-		g.logger.Warn("Цена %f вышла за пределы сетки [%f, %f]", 
-			market.Price, g.config.LowerPrice, g.config.UpperPrice)
-		return nil
+	gs := &GridStrategy{
+		config:    config,
+		exchange:  exchange,
+		logger:    logger,
+		positions: make(map[float64]gridPosition),
 	}
-
-	// Находим ближайшие уровни сетки
-	buyLevel, sellLevel := g.findNearestLevels(market.Price)
-	
-	// Проверяем возможность покупки
-	if buyLevel > 0 && g.shouldPlaceBuyOrder(buyLevel, market.Price) {
-		if err := g.placeBuyOrder(ctx, buyLevel, market); err != nil {
-			g.logger.Error("Ошибка размещения ордера на покупку: %v", err)
-			return err
-		}
-	}
-
-	// Проверяем возможность продажи
-	if sellLevel > 0 && g.shouldPlaceSellOrder(sellLevel, market.Price) {
-		if err := g.placeSellOrder(ctx, sellLevel, market); err != nil {
-			g.logger.Error("Ошибка размещения ордера на продажу: %v", err)
-			return err
-		}
-	}
-
-	return nil
+	gs.buildLevels()
+	return gs, nil
 }
 
-// GetSignal генерирует торговый сигнал
-func (g *GridStrategy) GetSignal(market types.MarketData) types.Signal {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	if !g.config.Enabled {
-		return types.Signal{
-			Type:      types.SignalTypeHold,
-			Symbol:    market.Symbol,
-			Price:     market.Price,
-			Timestamp: market.Timestamp,
-		}
+func (g *GridStrategy) buildLevels() {
+	step := (g.config.UpperPrice - g.config.LowerPrice) / float64(g.config.GridLevels-1)
+	levels := make([]float64, g.config.GridLevels)
+	for i := 0; i < g.config.GridLevels; i++ {
+		levels[i] = g.config.LowerPrice + float64(i)*step
 	}
-
-	// Проверяем диапазон цен
-	if market.Price < g.config.LowerPrice || market.Price > g.config.UpperPrice {
-		return types.Signal{
-			Type:      types.SignalTypeHold,
-			Symbol:    market.Symbol,
-			Price:     market.Price,
-			Timestamp: market.Timestamp,
-		}
-	}
-
-	buyLevel, sellLevel := g.findNearestLevels(market.Price)
-	
-	if buyLevel > 0 && g.shouldPlaceBuyOrder(buyLevel, market.Price) {
-		return types.Signal{
-			Type:      types.SignalTypeBuy,
-			Symbol:    market.Symbol,
-			Price:     buyLevel,
-			Quantity:  g.calculateOrderQuantity(buyLevel),
-			Strength:  0.8,
-			Timestamp: market.Timestamp,
-			Metadata: map[string]interface{}{
-				"grid_level": buyLevel,
-				"strategy":   "grid",
-			},
-		}
-	}
-
-	if sellLevel > 0 && g.shouldPlaceSellOrder(sellLevel, market.Price) {
-		return types.Signal{
-			Type:      types.SignalTypeSell,
-			Symbol:    market.Symbol,
-			Price:     sellLevel,
-			Quantity:  g.calculateOrderQuantity(sellLevel),
-			Strength:  0.8,
-			Timestamp: market.Timestamp,
-			Metadata: map[string]interface{}{
-				"grid_level": sellLevel,
-				"strategy":   "grid",
-			},
-		}
-	}
-
-	return types.Signal{
-		Type:      types.SignalTypeHold,
-		Symbol:    market.Symbol,
-		Price:     market.Price,
-		Timestamp: market.Timestamp,
-	}
+	sort.Float64s(levels)
+	g.levels = levels
 }
 
-// ValidateConfig проверяет корректность конфигурации
 func (g *GridStrategy) ValidateConfig() error {
 	if g.config.Symbol == "" {
 		return fmt.Errorf("symbol is required")
 	}
-
-	if g.config.UpperPrice <= g.config.LowerPrice {
-		return fmt.Errorf("upper price must be greater than lower price")
+	if g.config.LowerPrice <= 0 || g.config.UpperPrice <= g.config.LowerPrice {
+		return fmt.Errorf("invalid grid bounds")
 	}
-
-	if g.config.GridLevels <= 0 {
-		return fmt.Errorf("grid levels must be positive")
+	if g.config.GridLevels <= 1 {
+		return fmt.Errorf("grid levels must be > 1")
 	}
-
 	if g.config.InvestmentPerLevel <= 0 {
 		return fmt.Errorf("investment per level must be positive")
 	}
-
 	return nil
 }
 
-// GetMetrics возвращает метрики стратегии
+func (g *GridStrategy) Execute(ctx context.Context, market types.MarketData) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if !g.config.Enabled {
+		return nil
+	}
+
+	price := market.Price
+	// BUY when price crosses down to or below a level with empty position
+	for i, level := range g.levels {
+		pos := g.positions[level]
+		if price <= level && pos.quantity == 0 {
+			qty := g.config.InvestmentPerLevel / price
+			order := types.Order{Symbol: g.config.Symbol, Side: types.OrderSideBuy, Type: types.OrderTypeMarket, Quantity: qty, Price: price, Status: types.OrderStatusNew, Timestamp: time.Now()}
+			if err := g.exchange.PlaceOrder(ctx, order); err != nil {
+				return fmt.Errorf("grid buy failed: %w", err)
+			}
+			g.positions[level] = gridPosition{quantity: qty, avgPrice: price}
+			g.metrics.TotalTrades++
+			g.metrics.TotalVolume += qty * price
+			g.logger.Info("Grid BUY @ level %.2f qty=%.8f price=%.2f", level, qty, price)
+		}
+
+		// SELL when price reaches next higher level and we have a position at current level
+		if pos.quantity > 0 && i+1 < len(g.levels) {
+			nextLevel := g.levels[i+1]
+			if price >= nextLevel {
+				qty := pos.quantity
+				order := types.Order{Symbol: g.config.Symbol, Side: types.OrderSideSell, Type: types.OrderTypeMarket, Quantity: qty, Price: price, Status: types.OrderStatusNew, Timestamp: time.Now()}
+				if err := g.exchange.PlaceOrder(ctx, order); err != nil {
+					return fmt.Errorf("grid sell failed: %w", err)
+				}
+				realized := (price - pos.avgPrice) * qty
+				g.metrics.TotalTrades++
+				g.metrics.TotalVolume += qty * price
+				if realized >= 0 {
+					g.metrics.WinningTrades++
+					g.metrics.TotalProfit += realized
+				} else {
+					g.metrics.LosingTrades++
+					g.metrics.TotalLoss += -realized
+				}
+				g.positions[level] = gridPosition{}
+				g.logger.Info("Grid SELL from level %.2f qty=%.8f price=%.2f pnl=%.2f", level, qty, price, realized)
+			}
+		}
+	}
+
+	g.metrics.LastUpdate = time.Now()
+	if g.metrics.TotalTrades > 0 {
+		totalWins := float64(g.metrics.WinningTrades)
+		totalTrades := float64(g.metrics.TotalTrades)
+		g.metrics.WinRate = (totalWins / totalTrades) * 100.0
+		if g.metrics.TotalLoss > 0 {
+			g.metrics.ProfitFactor = g.metrics.TotalProfit / g.metrics.TotalLoss
+		}
+	}
+	return nil
+}
+
+func (g *GridStrategy) GetSignal(market types.MarketData) types.Signal {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	// For simplicity, return HOLD; the strategy performs execution inside Execute
+	return types.Signal{Type: types.SignalTypeHold, Symbol: market.Symbol, Price: market.Price, Timestamp: market.Timestamp}
+}
+
 func (g *GridStrategy) GetMetrics() types.StrategyMetrics {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-
-	return *g.metrics
+	return g.metrics
 }
 
-// Shutdown завершает работу стратегии
 func (g *GridStrategy) Shutdown(ctx context.Context) error {
-	g.cancel()
-	
-	// Отменяем все активные ордера
-	for _, order := range g.activeOrders {
-		if err := g.exchange.CancelOrder(ctx, order.ID); err != nil {
-			g.logger.Error("Ошибка отмены ордера %s: %v", order.ID, err)
-		}
-	}
-	
-	g.logger.Info("Grid стратегия остановлена")
+	g.logger.Info("Grid strategy stopped")
 	return nil
-}
-
-// calculateGridLevels вычисляет уровни сетки
-func (g *GridStrategy) calculateGridLevels() {
-	g.gridLevels = make([]float64, g.config.GridLevels)
-	
-	// Арифметическая прогрессия
-	step := (g.config.UpperPrice - g.config.LowerPrice) / float64(g.config.GridLevels-1)
-	
-	for i := 0; i < g.config.GridLevels; i++ {
-		g.gridLevels[i] = g.config.LowerPrice + float64(i)*step
-	}
-	
-	g.logger.Info("Создана сетка с %d уровнями от %.2f до %.2f", 
-		g.config.GridLevels, g.config.LowerPrice, g.config.UpperPrice)
-}
-
-// findNearestLevels находит ближайшие уровни сетки
-func (g *GridStrategy) findNearestLevels(price float64) (buyLevel, sellLevel float64) {
-	// Если цена ниже нижней границы, не размещаем ордера
-	if price < g.config.LowerPrice {
-		return 0, 0
-	}
-	
-	// Если цена выше верхней границы, не размещаем ордера
-	if price > g.config.UpperPrice {
-		return 0, 0
-	}
-	
-	for i, level := range g.gridLevels {
-		if price <= level {
-			// Нашли уровень для покупки
-			buyLevel = level
-			if i < len(g.gridLevels)-1 {
-				sellLevel = g.gridLevels[i+1]
-			}
-			break
-		}
-	}
-	return
-}
-
-// shouldPlaceBuyOrder проверяет, нужно ли размещать ордер на покупку
-func (g *GridStrategy) shouldPlaceBuyOrder(level, currentPrice float64) bool {
-	// Проверяем, есть ли уже активный ордер на этом уровне
-	for _, order := range g.activeOrders {
-		if order.Price == level && order.Side == types.OrderSideBuy {
-			return false
-		}
-	}
-	
-	// Размещаем ордер на покупку, если цена находится на уровне или ниже
-	return currentPrice <= level
-}
-
-// shouldPlaceSellOrder проверяет, нужно ли размещать ордер на продажу
-func (g *GridStrategy) shouldPlaceSellOrder(level, currentPrice float64) bool {
-	// Проверяем, есть ли уже активный ордер на этом уровне
-	for _, order := range g.activeOrders {
-		if order.Price == level && order.Side == types.OrderSideSell {
-			return false
-		}
-	}
-	
-	// Размещаем ордер на продажу, если цена находится на уровне или выше
-	return currentPrice >= level
-}
-
-// placeBuyOrder размещает ордер на покупку
-func (g *GridStrategy) placeBuyOrder(ctx context.Context, level float64, market types.MarketData) error {
-	quantity := g.calculateOrderQuantity(level)
-	
-	order := types.Order{
-		ID:        generateOrderID(),
-		Symbol:    g.config.Symbol,
-		Side:      types.OrderSideBuy,
-		Type:      types.OrderTypeLimit,
-		Quantity:  quantity,
-		Price:     level,
-		Status:    types.OrderStatusNew,
-		Timestamp: time.Now(),
-	}
-
-	g.logger.Info("Размещаем Grid ордер на покупку: %s %.8f @ %.2f", 
-		order.Symbol, order.Quantity, order.Price)
-
-	if err := g.exchange.PlaceOrder(ctx, order); err != nil {
-		return fmt.Errorf("failed to place buy order: %w", err)
-	}
-
-	g.activeOrders[order.ID] = order
-	g.updateMetrics(order, market.Price)
-
-	return nil
-}
-
-// placeSellOrder размещает ордер на продажу
-func (g *GridStrategy) placeSellOrder(ctx context.Context, level float64, market types.MarketData) error {
-	quantity := g.calculateOrderQuantity(level)
-	
-	order := types.Order{
-		ID:        generateOrderID(),
-		Symbol:    g.config.Symbol,
-		Side:      types.OrderSideSell,
-		Type:      types.OrderTypeLimit,
-		Quantity:  quantity,
-		Price:     level,
-		Status:    types.OrderStatusNew,
-		Timestamp: time.Now(),
-	}
-
-	g.logger.Info("Размещаем Grid ордер на продажу: %s %.8f @ %.2f", 
-		order.Symbol, order.Quantity, order.Price)
-
-	if err := g.exchange.PlaceOrder(ctx, order); err != nil {
-		return fmt.Errorf("failed to place sell order: %w", err)
-	}
-
-	g.activeOrders[order.ID] = order
-	g.updateMetrics(order, market.Price)
-
-	return nil
-}
-
-// calculateOrderQuantity вычисляет количество для ордера
-func (g *GridStrategy) calculateOrderQuantity(price float64) float64 {
-	return g.config.InvestmentPerLevel / price
-}
-
-// updateMetrics обновляет метрики стратегии
-func (g *GridStrategy) updateMetrics(order types.Order, price float64) {
-	g.metrics.TotalTrades++
-	g.metrics.TotalVolume += order.Quantity * price
-	g.metrics.LastUpdate = time.Now()
-}
-
-// GetStatus возвращает статус стратегии
-func (g *GridStrategy) GetStatus() map[string]interface{} {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	return map[string]interface{}{
-		"enabled":              g.config.Enabled,
-		"symbol":               g.config.Symbol,
-		"grid_levels":          len(g.gridLevels),
-		"active_orders":        len(g.activeOrders),
-		"lower_price":          g.config.LowerPrice,
-		"upper_price":          g.config.UpperPrice,
-		"investment_per_level": g.config.InvestmentPerLevel,
-		"total_trades":         g.metrics.TotalTrades,
-		"total_volume":         g.metrics.TotalVolume,
-	}
-}
-
-// generateOrderID генерирует уникальный ID для ордера
-func generateOrderID() string {
-	return fmt.Sprintf("grid_%d", time.Now().UnixNano())
 }

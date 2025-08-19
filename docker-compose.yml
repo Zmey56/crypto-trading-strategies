@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  dca-bot:
+    build: .
+    container_name: crypto-dca-bot
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./configs:/app/configs
+      - ./logs:/app/logs
+    environment:
+      - EXCHANGE_API_KEY=${EXCHANGE_API_KEY}
+      - EXCHANGE_SECRET_KEY=${EXCHANGE_SECRET_KEY}
+      - EXCHANGE_SANDBOX=true
+    command: ["./bin/dca-bot", "-config", "configs/dca-config.json"]
+    restart: unless-stopped
+    networks:
+      - crypto-network
+
+  grid-bot:
+    build: .
+    container_name: crypto-grid-bot
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./configs:/app/configs
+      - ./logs:/app/logs
+    environment:
+      - EXCHANGE_API_KEY=${EXCHANGE_API_KEY}
+      - EXCHANGE_SECRET_KEY=${EXCHANGE_SECRET_KEY}
+      - EXCHANGE_SANDBOX=true
+    command: ["./bin/grid-bot", "-config", "configs/grid-config.json"]
+    restart: unless-stopped
+    networks:
+      - crypto-network
+
+  combo-bot:
+    build: .
+    container_name: crypto-combo-bot
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./configs:/app/configs
+      - ./logs:/app/logs
+    environment:
+      - EXCHANGE_API_KEY=${EXCHANGE_API_KEY}
+      - EXCHANGE_SECRET_KEY=${EXCHANGE_SECRET_KEY}
+      - EXCHANGE_SANDBOX=true
+    command: ["./bin/combo-bot", "-config", "configs/combo-config.json"]
+    restart: unless-stopped
+    networks:
+      - crypto-network
+
+  backtester:
+    build: .
+    container_name: crypto-backtester
+    volumes:
+      - ./test/data:/app/test/data
+      - ./logs:/app/logs
+    command: ["./bin/backtester", "-data", "test/data/BTCUSDT-1h.csv", "-start", "2024-01-01T00:00:00Z", "-end", "2024-01-31T23:59:59Z"]
+    networks:
+      - crypto-network
+
+networks:
+  crypto-network:
+    driver: bridge
+
+volumes:
+  logs:

@@ -36,8 +36,9 @@ type ExchangeConfig struct {
 
 // StrategyConfig groups strategy configurations
 type StrategyConfig struct {
-	DCA  *types.DCAConfig  `json:"dca"`
-	Grid *types.GridConfig `json:"grid"`
+	DCA   *types.DCAConfig   `json:"dca"`
+	Grid  *types.GridConfig  `json:"grid"`
+	Combo *types.ComboConfig `json:"combo"`
 }
 
 // LoggingConfig describes logging configuration

@@ -19,11 +19,11 @@ import (
 )
 
 func main() {
-	// Парсим флаги командной строки
+	// Parse command line flags
 	configFile := flag.String("config", "", "Path to config file")
 	flag.Parse()
 
-	// Загружаем конфигурацию
+	// Load configuration
 	var cfg *config.Config
 	var err error
 
@@ -37,7 +37,7 @@ func main() {
 		cfg = config.LoadFromEnv()
 	}
 
-	// Создаем логгер
+	// Create logger
 	logLevel := logger.LevelInfo
 	switch cfg.Logging.Level {
 	case "debug":
@@ -64,7 +64,7 @@ func main() {
 	log.Info("Exchange: %s", cfg.Exchange.Name)
 	log.Info("Symbol: %s", cfg.Strategy.DCA.Symbol)
 
-	// Создаем контекст с отменой
+	// Create context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

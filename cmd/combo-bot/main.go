@@ -59,10 +59,9 @@ func main() {
 		log = logger.New(logLevel)
 	}
 
-	log.Info("🔲 Grid Bot starting...")
+	log.Info("🎯 Combo Bot starting...")
 	log.Info("Version: %s", cfg.App.Version)
 	log.Info("Exchange: %s", cfg.Exchange.Name)
-	log.Info("Symbol: %s", cfg.Strategy.Grid.Symbol)
 
 	// Создаем контекст с отменой
 	ctx, cancel := context.WithCancel(context.Background())
@@ -77,15 +76,15 @@ func main() {
 	// Create strategy factory
 	strategyFactory := strategy.NewFactory(log)
 
-	// Create Grid strategy
-	gridStrategy, err := strategyFactory.CreateGrid(*cfg.Strategy.Grid, exchange)
+	// Create Combo strategy
+	comboStrategy, err := strategyFactory.CreateCombo(*cfg.Strategy.Combo, exchange)
 	if err != nil {
-		log.Error("Failed to create Grid strategy: %v", err)
+		log.Error("Failed to create Combo strategy: %v", err)
 		os.Exit(1)
 	}
 
 	// Validate strategy config
-	if err := gridStrategy.ValidateConfig(); err != nil {
+	if err := comboStrategy.ValidateConfig(); err != nil {
 		log.Error("Strategy config validation error: %v", err)
 		os.Exit(1)
 	}
@@ -94,7 +93,7 @@ func main() {
 	go portfolioManager.StartAutoRefresh(ctx, 30*time.Second)
 
 	// Start trading loop
-	go runTradingLoop(ctx, gridStrategy, exchange, log, cfg.Strategy.Grid.Symbol)
+	go runTradingLoop(ctx, comboStrategy, exchange, log)
 
 	// Handle OS signals for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
@@ -102,10 +101,10 @@ func main() {
 
 	// Start HTTP server for monitoring (optional)
 	if cfg.App.Port > 0 {
-		go startHTTPServer(ctx, cfg, log, gridStrategy, portfolioManager)
+		go startHTTPServer(ctx, cfg, log, comboStrategy, portfolioManager)
 	}
 
-	log.Info("Grid Bot started and running")
+	log.Info("Combo Bot started and running")
 
 	// Wait for termination signal
 	<-sigChan
@@ -115,19 +114,19 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
 
-	if err := gridStrategy.Shutdown(shutdownCtx); err != nil {
+	if err := comboStrategy.Shutdown(shutdownCtx); err != nil {
 		log.Error("Error stopping strategy: %v", err)
 	}
 
-	log.Info("Grid Bot stopped")
+	log.Info("Combo Bot stopped")
 }
 
 // runTradingLoop starts the main trading loop
-func runTradingLoop(ctx context.Context, strategy strategy.Strategy, exchange types.ExchangeClient, log *logger.Logger, symbol string) {
-	ticker := time.NewTicker(30 * time.Second) // Check every 30 seconds for grid
+func runTradingLoop(ctx context.Context, strategy strategy.Strategy, exchange types.ExchangeClient, log *logger.Logger) {
+	ticker := time.NewTicker(1 * time.Minute) // Check every minute for combo
 	defer ticker.Stop()
 
-	log.Info("Trading loop started for %s", symbol)
+	log.Info("Trading loop started for combo strategy")
 
 	for {
 		select {
@@ -135,8 +134,8 @@ func runTradingLoop(ctx context.Context, strategy strategy.Strategy, exchange ty
 			log.Info("Trading loop stopped")
 			return
 		case <-ticker.C:
-			// Fetch market data
-			marketData, err := getMarketData(ctx, exchange, symbol)
+			// Fetch market data for all symbols in combo strategy
+			marketData, err := getMarketData(ctx, exchange, "BTCUSDT") // Default symbol
 			if err != nil {
 				log.Error("Failed to fetch market data: %v", err)
 				continue
@@ -213,9 +212,9 @@ func (m *MockExchangeClient) GetFilledOrders(ctx context.Context, symbol string)
 }
 
 func (m *MockExchangeClient) GetTicker(ctx context.Context, symbol string) (*types.Ticker, error) {
-	// Simulate a current BTC price with more volatility for grid testing
+	// Simulate a current BTC price with moderate volatility for combo testing
 	basePrice := 45000.0
-	volatility := float64(time.Now().Unix()%2000 - 1000) // -1000 to +1000
+	volatility := float64(time.Now().Unix()%1500 - 750) // -750 to +750
 	price := basePrice + volatility
 
 	return &types.Ticker{

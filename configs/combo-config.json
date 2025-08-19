@@ -1,0 +1,48 @@
+{
+  "app": {
+    "name": "crypto-combo-bot",
+    "version": "1.0.0",
+    "port": 8082,
+    "debug": false
+  },
+  "exchange": {
+    "name": "binance",
+    "api_key": "your-api-key-here",
+    "secret_key": "your-secret-key-here",
+    "passphrase": "",
+    "sandbox": true
+  },
+  "strategy": {
+    "combo": {
+      "strategies": [
+        {
+          "type": "dca",
+          "config": {
+            "symbol": "BTCUSDT",
+            "investment_amount": 50.0,
+            "interval": "24h",
+            "max_investments": 50,
+            "enabled": true
+          }
+        },
+        {
+          "type": "grid",
+          "config": {
+            "symbol": "BTCUSDT",
+            "upper_price": 50000.0,
+            "lower_price": 40000.0,
+            "grid_levels": 10,
+            "investment_per_level": 50.0,
+            "enabled": true
+          }
+        }
+      ],
+      "enabled": true
+    }
+  },
+  "logging": {
+    "level": "info",
+    "file": "logs/combo-bot.log",
+    "format": "text"
+  }
+}

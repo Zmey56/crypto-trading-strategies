@@ -56,7 +56,7 @@ func (d *DCAStrategy) Execute(ctx context.Context, market types.MarketData) erro
 
 	// Respect max number of investments
 	if d.buyCount >= d.config.MaxInvestments {
-		d.logger.Info("Достигнуто максимальное количество инвестиций для %s", d.config.Symbol)
+		d.logger.Info("Maximum number of investments reached for %s", d.config.Symbol)
 		return nil
 	}
 
@@ -67,7 +67,7 @@ func (d *DCAStrategy) Execute(ctx context.Context, market types.MarketData) erro
 
 	// Execute buy
 	if err := d.executeBuy(ctx, market); err != nil {
-		d.logger.Error("Ошибка при выполнении покупки: %v", err)
+		d.logger.Error("Error executing buy: %v", err)
 		return err
 	}
 
@@ -155,7 +155,7 @@ func (d *DCAStrategy) GetMetrics() types.StrategyMetrics {
 // Shutdown gracefully stops the strategy
 func (d *DCAStrategy) Shutdown(ctx context.Context) error {
 	d.cancel()
-	d.logger.Info("DCA стратегия остановлена")
+	d.logger.Info("DCA strategy stopped")
 	return nil
 }
 
@@ -173,7 +173,7 @@ func (d *DCAStrategy) executeBuy(ctx context.Context, market types.MarketData) e
 		Timestamp: time.Now(),
 	}
 
-	d.logger.Info("Размещаем DCA ордер: %s %.8f @ %.2f",
+	d.logger.Info("Placing DCA order: %s %.8f @ %.2f",
 		order.Symbol, order.Quantity, order.Price)
 
 	if err := d.exchange.PlaceOrder(ctx, order); err != nil {
@@ -185,7 +185,7 @@ func (d *DCAStrategy) executeBuy(ctx context.Context, market types.MarketData) e
 	d.buyCount++
 	d.updateMetrics(order, market.Price)
 
-	d.logger.Info("DCA покупка выполнена: %s %.8f @ %.2f (покупка #%d)",
+	d.logger.Info("DCA buy executed: %s %.8f @ %.2f (buy #%d)",
 		order.Symbol, order.Quantity, order.Price, d.buyCount)
 
 	return nil
@@ -222,7 +222,7 @@ func (d *DCAStrategy) UpdateConfig(config types.DCAConfig) error {
 	}
 
 	d.config = config
-	d.logger.Info("Конфигурация DCA стратегии обновлена")
+	d.logger.Info("DCA strategy configuration updated")
 	return nil
 }
 

@@ -34,9 +34,11 @@ func (f *Factory) CreateGrid(config types.GridConfig, exchange types.ExchangeCli
 	if err := f.validateGridConfig(config); err != nil {
 		return nil, fmt.Errorf("invalid Grid config: %w", err)
 	}
-
-	strategy := NewGridStrategy(config, exchange, f.logger)
-	return strategy, nil
+	gs, err := NewGridStrategy(config, exchange, f.logger)
+	if err != nil {
+		return nil, err
+	}
+	return gs, nil
 }
 
 // CreateCombo creates a combined strategy
@@ -45,8 +47,7 @@ func (f *Factory) CreateCombo(config types.ComboConfig, exchange types.ExchangeC
 		return nil, fmt.Errorf("invalid Combo config: %w", err)
 	}
 
-	// TODO: Реализовать комбинированную стратегию
-	return nil, fmt.Errorf("combo strategy not implemented yet")
+	return NewComboStrategy(config, exchange, f.logger)
 }
 
 // validateDCAConfig validates DCA configuration

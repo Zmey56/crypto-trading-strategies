@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/Zmey56/crypto-arbitrage-trader/internal/exchange/binance"
 	"github.com/Zmey56/crypto-arbitrage-trader/internal/logger"
 	"github.com/Zmey56/crypto-arbitrage-trader/pkg/types"
 )
@@ -33,6 +35,16 @@ type Client interface {
 	Close() error
 }
 
+type RateLimitConfig struct {
+	RequestsPerSecond float64
+	Burst             int
+}
+
+type RetryConfig struct {
+	MaxRetries int
+	Delay      time.Duration
+}
+
 type ExchangeConfig struct {
 	Name       string
 	APIKey     string
@@ -45,8 +57,6 @@ type ExchangeConfig struct {
 
 type UnifiedClient struct {
 	clients map[string]Client
-	router  *RequestRouter
-	monitor *HealthMonitor
 	logger  *logger.Logger
 }
 
@@ -63,15 +73,27 @@ func NewUnifiedClient(configs []ExchangeConfig) (*UnifiedClient, error) {
 
 	return &UnifiedClient{
 		clients: clients,
-		router:  NewRequestRouter(),
-		monitor: NewHealthMonitor(),
+		logger:  logger.New(logger.LevelInfo),
 	}, nil
 }
 
 func createExchangeClient(config ExchangeConfig) (Client, error) {
 	switch strings.ToLower(config.Name) {
 	case "binance":
-		return nil, fmt.Errorf("binance client not included in demo build")
+		binanceConfig := binance.ExchangeConfig{
+			APIKey:    config.APIKey,
+			SecretKey: config.SecretKey,
+			Sandbox:   config.Sandbox,
+			RateLimit: binance.RateLimitConfig{
+				RequestsPerSecond: config.RateLimit.RequestsPerSecond,
+				Burst:             config.RateLimit.Burst,
+			},
+			Retry: binance.RetryConfig{
+				MaxRetries: config.Retry.MaxRetries,
+				Delay:      config.Retry.Delay,
+			},
+		}
+		return binance.NewClient(binanceConfig)
 	default:
 		return nil, fmt.Errorf("unsupported exchange: %s", config.Name)
 	}

@@ -11,7 +11,6 @@ type Strategy interface {
 	GetSignal(market types.MarketData) types.Signal
 	ValidateConfig() error
 	GetMetrics() types.StrategyMetrics
-	GetStatus() map[string]interface{}
 	Shutdown(ctx context.Context) error
 }
 

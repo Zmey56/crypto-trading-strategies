@@ -1,71 +1,71 @@
 # Crypto Trading Strategies
 
-Проект для автоматизированной торговли криптовалютами с использованием различных стратегий.
+Project for automated cryptocurrency trading using various strategies.
 
-## 🚀 Возможности
+## 🚀 Features
 
-- **DCA (Dollar Cost Averaging)** - стратегия усреднения стоимости ✅
-- **Grid Trading** - сеточная торговля ✅
-- **Combo Strategies** - комбинированные стратегии ✅
-- Поддержка множественных бирж (Binance, Kraken) ✅
-- Мониторинг портфеля в реальном времени ✅
-- RESTful API для управления ✅
-- Подробное логирование и метрики ✅
-- Бэктестинг стратегий ✅
-- Docker контейнеризация ✅
-- Полное покрытие тестами ✅
+- **DCA (Dollar Cost Averaging)** - dollar cost averaging strategy ✅
+- **Grid Trading** - grid trading ✅
+- **Combo Strategies** - combined strategies ✅
+- Multiple exchange support (Binance, Kraken) ✅
+- Real-time portfolio monitoring ✅
+- RESTful API for management ✅
+- Detailed logging and metrics ✅
+- Strategy backtesting ✅
+- Docker containerization ✅
+- Full test coverage ✅
 
-## 📁 Структура проекта
+## 📁 Project Structure
 
 ```
 crypto-trading-strategies/
-├── cmd/                    # Исполняемые файлы
-│   ├── dca-bot/           # DCA бот
-│   ├── grid-bot/          # Grid бот
-│   └── backtester/        # Бэктестер
-├── internal/              # Внутренние пакеты
-│   ├── config/            # Конфигурация
-│   ├── exchange/          # Клиенты бирж
-│   ├── strategy/          # Торговые стратегии
-│   ├── portfolio/         # Управление портфелем
-│   └── logger/            # Логирование
-├── pkg/                   # Публичные пакеты
-│   ├── types/             # Общие типы данных
-│   └── indicators/        # Технические индикаторы
-├── configs/               # Конфигурационные файлы
-├── examples/              # Примеры использования
-└── docs/                  # Документация
+├── cmd/                    # Executable files
+│   ├── dca-bot/           # DCA bot
+│   ├── grid-bot/          # Grid bot
+│   └── backtester/        # Backtester
+├── internal/              # Internal packages
+│   ├── config/            # Configuration
+│   ├── exchange/          # Exchange clients
+│   ├── strategy/          # Trading strategies
+│   ├── portfolio/         # Portfolio management
+│   └── logger/            # Logging
+├── pkg/                   # Public packages
+│   ├── types/             # Common data types
+│   └── indicators/        # Technical indicators
+├── configs/               # Configuration files
+├── examples/              # Usage examples
+└── docs/                  # Documentation
 ```
 
-## 🛠️ Установка и запуск
+## 🛠️ Installation and Setup
 
-### Требования
+### Requirements
 
-- Go 1.21 или выше
-- API ключи от биржи (Binance, Kraken)
+- Go 1.21 or higher
+- Exchange API keys (Binance, Kraken)
 
-### Установка
+### Installation
 
 ```bash
-# Клонирование репозитория
+# Clone repository
 git clone <repository-url>
 cd crypto-trading-strategies
 
-# Установка зависимостей
+# Install dependencies
 go mod tidy
 
-# Сборка
+# Build
 go build ./cmd/dca-bot
 ```
 
-### Конфигурация
+### Configuration
 
-1. Скопируйте пример конфигурации:
+1. Copy the example configuration:
 ```bash
 cp configs/dca-config.json configs/my-config.json
 ```
 
-2. Отредактируйте конфигурацию:
+2. Edit the configuration:
 ```json
 {
   "exchange": {
@@ -86,20 +86,20 @@ cp configs/dca-config.json configs/my-config.json
 }
 ```
 
-### Запуск ботов
+### Running Bots
 
 #### DCA Bot
 ```bash
-# Сборка
+# Build
 make build
 
-# Запуск с конфигурационным файлом
+# Run with config file
 make run-dca
 
-# Или напрямую
+# Or directly
 ./bin/dca-bot -config configs/dca-config.json
 
-# С переменными окружения
+# With environment variables
 export DCA_SYMBOL=BTCUSDT
 export DCA_INVESTMENT_AMOUNT=100
 export DCA_INTERVAL=24h
@@ -110,57 +110,57 @@ export EXCHANGE_SECRET_KEY=your-secret-key
 
 #### Grid Bot
 ```bash
-# Запуск Grid бота
+# Run Grid bot
 make run-grid
 
-# Или напрямую
+# Or directly
 ./bin/grid-bot -config configs/grid-config.json
 ```
 
 #### Combo Bot
 ```bash
-# Запуск Combo бота
+# Run Combo bot
 make run-combo
 
-# Или напрямую
+# Or directly
 ./bin/combo-bot -config configs/combo-config.json
 ```
 
 #### Docker
 ```bash
-# Сборка и запуск всех ботов
+# Build and run all bots
 docker-compose up -d
 
-# Запуск только DCA бота
+# Run only DCA bot
 docker-compose up dca-bot
 
-# Остановка
+# Stop
 docker-compose down
 ```
 
-## 📊 DCA Стратегия
+## 📊 DCA Strategy
 
-DCA (Dollar Cost Averaging) - стратегия усреднения стоимости, которая заключается в регулярной покупке актива на фиксированную сумму независимо от цены.
+DCA (Dollar Cost Averaging) - a dollar cost averaging strategy that involves regularly purchasing an asset for a fixed amount regardless of price.
 
-### Принципы работы
+### Working Principles
 
-1. **Регулярные инвестиции**: Покупка на фиксированную сумму через заданные интервалы
-2. **Автоматическое исполнение**: Бот автоматически размещает ордера
-3. **Управление рисками**: Ограничение максимального количества инвестиций
-4. **Мониторинг**: Отслеживание позиций и метрик в реальном времени
+1. **Regular Investments**: Purchase for a fixed amount at specified intervals
+2. **Automatic Execution**: Bot automatically places orders
+3. **Risk Management**: Limiting the maximum number of investments
+4. **Monitoring**: Tracking positions and metrics in real time
 
-### Конфигурация DCA
+### DCA Configuration
 
 ```json
 {
-  "symbol": "BTCUSDT",           // Торговая пара
-  "investment_amount": 100.0,    // Сумма инвестиции в USDT
-  "interval": "24h",             // Интервал между покупками
-  "max_investments": 100,        // Максимальное количество покупок
-  "price_threshold": 0.0,        // Порог цены (0 = без ограничений)
-  "stop_loss": 0.0,              // Stop Loss (0 = отключен)
-  "take_profit": 0.0,            // Take Profit (0 = отключен)
-  "enabled": true                // Включить/выключить стратегию
+        "symbol": "BTCUSDT",           // Trading pair
+      "investment_amount": 100.0,    // Investment amount in USDT
+      "interval": "24h",             // Interval between purchases
+      "max_investments": 100,        // Maximum number of investments
+      "price_threshold": 0.0,        // Price threshold (0 = no restrictions)
+      "stop_loss": 0.0,              // Stop Loss (0 = disabled)
+      "take_profit": 0.0,            // Take Profit (0 = disabled)
+      "enabled": true                // Enable/disable strategy
 }
 ```
 
@@ -168,168 +168,168 @@ DCA (Dollar Cost Averaging) - стратегия усреднения стоим
 
 ### Endpoints
 
-- `GET /health` - Проверка состояния
-- `GET /portfolio` - Информация о портфеле
-- `GET /strategy/status` - Статус стратегии
-- `POST /strategy/config` - Обновление конфигурации
-- `GET /metrics` - Метрики стратегии
+- `GET /health` - Health check
+- `GET /portfolio` - Portfolio information
+- `GET /strategy/status` - Strategy status
+- `POST /strategy/config` - Update configuration
+- `GET /metrics` - Strategy metrics
 
-### Пример использования API
+### API Usage Example
 
 ```bash
-# Получение статуса портфеля
+# Get portfolio status
 curl http://localhost:8080/portfolio
 
-# Обновление конфигурации
+# Update configuration
 curl -X POST http://localhost:8080/strategy/config \
   -H "Content-Type: application/json" \
   -d '{"investment_amount": 150.0}'
 ```
 
-## 📈 Стратегии
+## 📈 Strategies
 
 ### DCA (Dollar Cost Averaging)
-Стратегия усреднения стоимости, которая заключается в регулярной покупке актива на фиксированную сумму независимо от цены.
+Dollar cost averaging strategy that involves regularly purchasing an asset for a fixed amount regardless of price.
 
-**Принципы работы:**
-- Регулярные инвестиции через заданные интервалы
-- Автоматическое исполнение ордеров
-- Управление рисками через лимиты
-- Мониторинг в реальном времени
+**Working Principles:**
+- Regular investments at specified intervals
+- Automatic order execution
+- Risk management through limits
+- Real-time monitoring
 
 ### Grid Trading
-Сеточная торговля с размещением ордеров на разных ценовых уровнях.
+Grid trading with order placement at different price levels.
 
-**Принципы работы:**
-- Создание сетки ордеров между верхней и нижней ценой
-- Автоматическая покупка при падении цены
-- Автоматическая продажа при росте цены
-- Получение прибыли от волатильности
+**Working Principles:**
+- Creating a grid of orders between upper and lower prices
+- Automatic buying when price falls
+- Automatic selling when price rises
+- Profiting from volatility
 
 ### Combo Strategy
-Комбинированная стратегия, объединяющая несколько стратегий с весовыми коэффициентами.
+Combined strategy that combines multiple strategies with weighted coefficients.
 
-**Принципы работы:**
-- Объединение сигналов от разных стратегий
-- Взвешенное принятие решений
-- Диверсификация рисков
-- Адаптивность к рыночным условиям
+**Working Principles:**
+- Combining signals from different strategies
+- Weighted decision making
+- Risk diversification
+- Adaptability to market conditions
 
-## 📊 Мониторинг
+## 📊 Monitoring
 
-### Метрики стратегии
+### Strategy Metrics
 
-- **Total Trades**: Общее количество сделок
-- **Win Rate**: Процент прибыльных сделок
-- **Total Profit/Loss**: Общая прибыль/убыток
-- **Average Win/Loss**: Средняя прибыль/убыток
-- **Profit Factor**: Фактор прибыли
-- **Max Drawdown**: Максимальная просадка
-- **Sharpe Ratio**: Коэффициент Шарпа
-- **Total Volume**: Общий объем торгов
+- **Total Trades**: Total number of trades
+- **Win Rate**: Percentage of profitable trades
+- **Total Profit/Loss**: Total profit/loss
+- **Average Win/Loss**: Average profit/loss
+- **Profit Factor**: Profit factor
+- **Max Drawdown**: Maximum drawdown
+- **Sharpe Ratio**: Sharpe ratio
+- **Total Volume**: Total trading volume
 
-### Логирование
+### Logging
 
-Бот ведет подробные логи всех операций:
+The bot maintains detailed logs of all operations:
 
 ```
-[INFO] 🤖 DCA Bot запускается...
-[INFO] Версия: 1.0.0
-[INFO] Биржа: binance
-[INFO] Символ: BTCUSDT
-[INFO] DCA Bot успешно запущен и работает
-[INFO] Mock: Размещен ордер BTCUSDT 0.00222222 @ 45000.00
-[INFO] DCA покупка выполнена: BTCUSDT 0.00222222 @ 45000.00 (покупка #1)
+[INFO] 🤖 DCA Bot starting...
+[INFO] Version: 1.0.0
+[INFO] Exchange: binance
+[INFO] Symbol: BTCUSDT
+[INFO] DCA Bot successfully started and running
+[INFO] Mock: Placed order BTCUSDT 0.00222222 @ 45000.00
+[INFO] DCA buy executed: BTCUSDT 0.00222222 @ 45000.00 (buy #1)
 ```
 
-## 🛡️ Безопасность
+## 🛡️ Security
 
-### Рекомендации
+### Recommendations
 
-1. **API ключи**: Используйте API ключи только для торговли, без права вывода
-2. **Sandbox**: Сначала тестируйте на песочнице
-3. **Лимиты**: Устанавливайте разумные лимиты на инвестиции
-4. **Мониторинг**: Регулярно проверяйте логи и метрики
+1. **API Keys**: Use API keys only for trading, without withdrawal rights
+2. **Sandbox**: Test on sandbox first
+3. **Limits**: Set reasonable investment limits
+4. **Monitoring**: Regularly check logs and metrics
 
-### Переменные окружения
+### Environment Variables
 
 ```bash
-# Безопасное хранение API ключей
+# Secure API key storage
 export EXCHANGE_API_KEY=your-api-key
 export EXCHANGE_SECRET_KEY=your-secret-key
 export EXCHANGE_SANDBOX=true
 ```
 
-## 🧪 Тестирование
+## 🧪 Testing
 
-### Unit тесты
+### Unit Tests
 
 ```bash
-# Запуск всех тестов
+# Run all tests
 make test
 
-# Запуск тестов с покрытием
+# Run tests with coverage
 make test-coverage
 
-# Запуск тестов конкретного пакета
+# Run tests for specific package
 go test ./internal/strategy
 go test ./internal/portfolio
 ```
 
-### Бэктестинг
+### Backtesting
 
 ```bash
-# Запуск бэктестера
+# Run backtester
 make run-backtest
 
-# Или напрямую
+# Or directly
 ./bin/backtester -data test/data/BTCUSDT-1h.csv -start 2024-01-01T00:00:00Z -end 2024-01-31T23:59:59Z
 ```
 
-### Проверка качества кода
+### Code Quality Check
 
 ```bash
-# Форматирование кода
+# Format code
 make fmt
 
-# Линтинг
+# Linting
 make lint
 ```
 
-## 📝 Разработка
+## 📝 Development
 
-### Добавление новой стратегии
+### Adding New Strategy
 
-1. Создайте новый файл в `internal/strategy/`
-2. Реализуйте интерфейс `Strategy`
-3. Добавьте конфигурацию в `pkg/types/types.go`
-4. Обновите фабрику стратегий
-5. Добавьте тесты
+1. Create a new file in `internal/strategy/`
+2. Implement the `Strategy` interface
+3. Add configuration to `pkg/types/types.go`
+4. Update strategy factory
+5. Add tests
 
-### Добавление новой биржи
+### Adding New Exchange
 
-1. Создайте клиент в `internal/exchange/`
-2. Реализуйте интерфейс `ExchangeClient`
-3. Добавьте в `UnifiedClient`
-4. Добавьте тесты
+1. Create client in `internal/exchange/`
+2. Implement `ExchangeClient` interface
+3. Add to `UnifiedClient`
+4. Add tests
 
-## 🤝 Вклад в проект
+## 🤝 Contributing
 
-1. Fork репозитория
-2. Создайте feature branch
-3. Внесите изменения
-4. Добавьте тесты
-5. Создайте Pull Request
+1. Fork the repository
+2. Create a feature branch
+3. Make changes
+4. Add tests
+5. Create Pull Request
 
-## 📄 Лицензия
+## 📄 License
 
 MIT License
 
-## ⚠️ Отказ от ответственности
+## ⚠️ Disclaimer
 
-Этот проект предназначен только для образовательных целей. Торговля криптовалютами связана с высокими рисками. Авторы не несут ответственности за возможные финансовые потери.
+This project is for educational purposes only. Cryptocurrency trading involves high risks. The authors are not responsible for possible financial losses.
 
-## 📞 Поддержка
+## 📞 Support
 
 - Issues: [GitHub Issues](https://github.com/your-repo/issues)
 - Discussions: [GitHub Discussions](https://github.com/your-repo/discussions)

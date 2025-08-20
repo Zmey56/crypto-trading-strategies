@@ -82,7 +82,7 @@ func (l *Logger) Fatal(format string, args ...interface{}) {
 
 // WithFields returns the same logger; placeholder for structured logging
 func (l *Logger) WithFields(fields map[string]interface{}) *Logger {
-	// Простая реализация - в реальном проекте можно использовать структурированное логирование
+	// Simple implementation - in a real project you can use structured logging
 	return l
 }
 

@@ -170,7 +170,7 @@ func getMarketData(ctx context.Context, exchange types.ExchangeClient, symbol st
 	}, nil
 }
 
-// createMockExchange создает mock exchange client для демонстрации
+	// createMockExchange creates mock exchange client for demonstration
 func createMockExchange(cfg *config.Config, log *logger.Logger) types.ExchangeClient {
 	return &MockExchangeClient{
 		config: cfg,
@@ -178,7 +178,7 @@ func createMockExchange(cfg *config.Config, log *logger.Logger) types.ExchangeCl
 	}
 }
 
-// MockExchangeClient представляет mock клиент биржи
+// MockExchangeClient represents mock exchange client
 type MockExchangeClient struct {
 	config *config.Config
 	logger *logger.Logger
@@ -187,7 +187,7 @@ type MockExchangeClient struct {
 func (m *MockExchangeClient) PlaceOrder(ctx context.Context, order types.Order) error {
 	m.logger.Info("Mock: Размещен ордер %s %.8f @ %.2f", order.Symbol, order.Quantity, order.Price)
 
-	// Имитируем успешное исполнение
+			// Simulate successful execution
 	order.Status = types.OrderStatusFilled
 	order.FilledAmount = order.Quantity
 	order.FilledPrice = order.Price
@@ -304,7 +304,7 @@ func startHTTPServer(ctx context.Context, cfg *config.Config, log *logger.Logger
 			type dcaConfigGetter interface{ GetConfig() types.DCAConfig }
 			if getter, ok := strategy.(dcaConfigGetter); ok {
 				current := getter.GetConfig()
-				// Применяем частичные поля
+				// Apply partial fields
 				if v, ok := partial["investment_amount"].(float64); ok {
 					current.InvestmentAmount = v
 				}

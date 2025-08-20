@@ -7,11 +7,41 @@ import (
 
 type PerformanceTracker struct {
 	strategies map[string]*StrategyMetrics
-	collector  *metrics.Collector
+	collector  *MetricsCollector
 	alerter    *AlertManager
 
 	// Key performance indicators
 	kpiTargets map[string]float64
+}
+
+type MetricsCollector struct {
+	// Metrics collection functionality
+}
+
+type AlertManager struct {
+	// Alert management functionality
+}
+
+type PerformanceReport struct {
+	Strategy        string           `json:"strategy"`
+	Period          time.Duration    `json:"period"`
+	Metrics         *StrategyMetrics `json:"metrics"`
+	Analysis        string           `json:"analysis"`
+	Recommendations []string         `json:"recommendations"`
+	RiskAssessment  RiskAssessment   `json:"risk_assessment"`
+	Alerts          []Alert          `json:"alerts"`
+}
+
+type RiskAssessment struct {
+	RiskLevel   string   `json:"risk_level"`
+	RiskScore   float64  `json:"risk_score"`
+	RiskFactors []string `json:"risk_factors"`
+}
+
+type Alert struct {
+	Type     string `json:"type"`
+	Message  string `json:"message"`
+	Severity string `json:"severity"`
 }
 
 type StrategyMetrics struct {
@@ -62,4 +92,76 @@ func (pt *PerformanceTracker) GeneratePerformanceReport(
 	}
 
 	return report, nil
+}
+
+// generateAnalysis generates performance analysis
+func (pt *PerformanceTracker) generateAnalysis(metrics *StrategyMetrics) string {
+	if metrics.SharpeRatio > 1.5 {
+		return "Excellent performance with strong risk-adjusted returns"
+	} else if metrics.SharpeRatio > 1.0 {
+		return "Good performance with acceptable risk-adjusted returns"
+	} else if metrics.SharpeRatio > 0.5 {
+		return "Moderate performance with room for improvement"
+	} else {
+		return "Poor performance - consider strategy adjustments"
+	}
+}
+
+// generateRecommendations generates improvement recommendations
+func (pt *PerformanceTracker) generateRecommendations(metrics *StrategyMetrics) []string {
+	var recommendations []string
+
+	if metrics.SharpeRatio < 1.0 {
+		recommendations = append(recommendations, "Consider reducing position sizes to improve risk-adjusted returns")
+	}
+
+	if metrics.MaxDrawdown > 0.2 {
+		recommendations = append(recommendations, "Implement stricter stop-loss mechanisms")
+	}
+
+	if metrics.WinRate < 0.5 {
+		recommendations = append(recommendations, "Review entry/exit criteria for better win rate")
+	}
+
+	if len(recommendations) == 0 {
+		recommendations = append(recommendations, "Strategy performing well - maintain current approach")
+	}
+
+	return recommendations
+}
+
+// assessRisk assesses risk level based on metrics
+func (pt *PerformanceTracker) assessRisk(metrics *StrategyMetrics) RiskAssessment {
+	riskScore := 0.0
+	var riskFactors []string
+
+	if metrics.MaxDrawdown > 0.3 {
+		riskScore += 0.4
+		riskFactors = append(riskFactors, "High maximum drawdown")
+	}
+
+	if metrics.Volatility > 0.5 {
+		riskScore += 0.3
+		riskFactors = append(riskFactors, "High volatility")
+	}
+
+	if metrics.VaR95 > 0.1 {
+		riskScore += 0.3
+		riskFactors = append(riskFactors, "High Value at Risk")
+	}
+
+	var riskLevel string
+	if riskScore < 0.3 {
+		riskLevel = "LOW"
+	} else if riskScore < 0.7 {
+		riskLevel = "MEDIUM"
+	} else {
+		riskLevel = "HIGH"
+	}
+
+	return RiskAssessment{
+		RiskLevel:   riskLevel,
+		RiskScore:   riskScore,
+		RiskFactors: riskFactors,
+	}
 }

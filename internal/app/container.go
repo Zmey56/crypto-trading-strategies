@@ -1,35 +1,46 @@
 package app
 
-import "fmt"
+import (
+	"github.com/Zmey56/crypto-arbitrage-trader/internal/analytics"
+	"github.com/Zmey56/crypto-arbitrage-trader/internal/config"
+	"github.com/Zmey56/crypto-arbitrage-trader/internal/exchange"
+	"github.com/Zmey56/crypto-arbitrage-trader/internal/exchange/mock"
+	"github.com/Zmey56/crypto-arbitrage-trader/internal/logger"
+	"github.com/Zmey56/crypto-arbitrage-trader/internal/portfolio"
+	"github.com/Zmey56/crypto-arbitrage-trader/internal/risk"
+	"github.com/Zmey56/crypto-arbitrage-trader/internal/strategy"
+)
 
 type Container struct {
 	config           *config.Config
 	logger           *logger.Logger
 	exchangeClients  map[string]exchange.Client
-	strategyFactory  strategy.Factory
+	strategyFactory  *strategy.Factory
 	portfolioManager *portfolio.Manager
 	riskManager      *risk.Manager
-	metricsCollector *metrics.Collector
+	metricsCollector *analytics.MetricsCollector
 }
 
 func NewContainer(cfg *config.Config) (*Container, error) {
-	logger := logger.NewStructuredLogger(cfg.Logger)
+	log := logger.New(logger.LevelInfo)
 
-	exchangeClients, err := initializeExchanges(cfg.Exchanges)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize exchanges: %w", err)
-	}
+	exchangeClients := make(map[string]exchange.Client)
+	// Initialize default exchange client (mock for now)
+	mockClient := &mock.MockClient{}
+	exchangeClients["binance"] = mockClient
 
-	riskManager := risk.NewManager(cfg.Risk)
-	portfolioManager := portfolio.NewManager(exchangeClients, riskManager)
+	riskManager := &risk.Manager{}
+	portfolioManager := portfolio.NewManager(mockClient, log)
+
+	metricsCollector := &analytics.MetricsCollector{}
 
 	return &Container{
 		config:           cfg,
-		logger:           logger,
+		logger:           log,
 		exchangeClients:  exchangeClients,
-		strategyFactory:  strategy.NewFactory(),
+		strategyFactory:  strategy.NewFactory(log),
 		portfolioManager: portfolioManager,
 		riskManager:      riskManager,
-		metricsCollector: metrics.NewCollector(),
+		metricsCollector: metricsCollector,
 	}, nil
 }

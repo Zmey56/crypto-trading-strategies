@@ -14,6 +14,103 @@ type ComplianceEngine struct {
 	reportManager ReportManager
 }
 
+type SanctionsDatabase struct {
+	// Sanctions database functionality
+}
+
+type RiskScorer struct {
+	// Risk scoring functionality
+}
+
+type ReportManager struct {
+	// Report management functionality
+}
+
+type Customer struct {
+	ID                 string        `json:"id"`
+	Name               string        `json:"name"`
+	Address            string        `json:"address"`
+	Country            string        `json:"country"`
+	TransactionHistory []Transaction `json:"transaction_history"`
+}
+
+type KYCResult struct {
+	Status    KYCStatus `json:"status"`
+	Verified  bool      `json:"verified"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
+type AMLAlert struct {
+	ID        string    `json:"id"`
+	RiskLevel RiskLevel `json:"risk_level"`
+	Message   string    `json:"message"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
+type SARReport struct {
+	ID          string    `json:"id"`
+	Description string    `json:"description"`
+	Timestamp   time.Time `json:"timestamp"`
+}
+
+type Entity struct {
+	Name    string `json:"name"`
+	Address string `json:"address"`
+	Country string `json:"country"`
+}
+
+type ComplianceAction struct {
+	Type    string `json:"type"`
+	Details string `json:"details"`
+}
+
+type RiskFactors struct {
+	KYCStatus         KYCStatus
+	AMLRisk           RiskLevel
+	SanctionsHit      bool
+	TransactionAmount float64
+	CustomerHistory   []Transaction
+}
+
+// CalculateRiskScore calculates risk score based on factors
+func (rs *RiskScorer) CalculateRiskScore(factors RiskFactors) float64 {
+	score := 0.0
+
+	// KYC status impact
+	switch factors.KYCStatus {
+	case KYCStatusVerified:
+		score += 0.1
+	case KYCStatusPending:
+		score += 0.5
+	case KYCStatusRejected:
+		score += 1.0
+	}
+
+	// AML risk impact
+	switch factors.AMLRisk {
+	case RiskLevelLow:
+		score += 0.1
+	case RiskLevelMedium:
+		score += 0.3
+	case RiskLevelHigh:
+		score += 0.7
+	case RiskLevelCritical:
+		score += 1.0
+	}
+
+	// Sanctions hit impact
+	if factors.SanctionsHit {
+		score += 1.0
+	}
+
+	// Transaction amount impact
+	if factors.TransactionAmount > 10000 {
+		score += 0.3
+	}
+
+	return score
+}
+
 type KYCProvider interface {
 	VerifyIdentity(ctx context.Context, customer Customer) (*KYCResult, error)
 	UpdateVerification(ctx context.Context, customerID string) error
@@ -97,7 +194,7 @@ func (ce *ComplianceEngine) PerformComplianceCheck(
 		KYCStatus:         check.KYCStatus,
 		AMLRisk:           check.AMLRisk,
 		SanctionsHit:      check.SanctionsHit,
-		TransactionAmount: transaction.Amount,
+		TransactionAmount: transaction.Quantity * transaction.Price,
 		CustomerHistory:   customer.TransactionHistory,
 	})
 

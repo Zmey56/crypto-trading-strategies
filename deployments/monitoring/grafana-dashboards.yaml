@@ -1,0 +1,406 @@
+# Grafana Dashboard configuration for Crypto Trading Bots
+# This file contains dashboard definitions for monitoring
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: crypto-trading
+  labels:
+    app: crypto-trading
+    component: monitoring
+data:
+  # Main trading dashboard
+  trading-dashboard.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Crypto Trading Bots Dashboard",
+        "tags": ["crypto", "trading", "bots"],
+        "style": "dark",
+        "timezone": "browser",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Bot Status",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "up{job=~\"dca-bot|grid-bot|combo-bot\"}",
+                "legendFormat": "{{instance}}"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "thresholds"
+                },
+                "thresholds": {
+                  "steps": [
+                    {"color": "red", "value": 0},
+                    {"color": "green", "value": 1}
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "id": 2,
+            "title": "Trades Executed (Last Hour)",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "increase(trades_executed_total[1h])",
+                "legendFormat": "{{instance}}"
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "Portfolio Value",
+            "type": "gauge",
+            "targets": [
+              {
+                "expr": "portfolio_total_value_usdt",
+                "legendFormat": "{{instance}}"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "min": 0,
+                "max": 10000,
+                "unit": "currencyUSD"
+              }
+            }
+          },
+          {
+            "id": 4,
+            "title": "Profit/Loss",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "portfolio_unrealized_pnl_usdt",
+                "legendFormat": "Unrealized P&L - {{instance}}"
+              },
+              {
+                "expr": "portfolio_realized_pnl_usdt",
+                "legendFormat": "Realized P&L - {{instance}}"
+              }
+            ],
+            "yAxes": [
+              {
+                "unit": "currencyUSD"
+              }
+            ]
+          },
+          {
+            "id": 5,
+            "title": "Trade Success Rate",
+            "type": "piechart",
+            "targets": [
+              {
+                "expr": "rate(trades_successful_total[5m])",
+                "legendFormat": "Successful"
+              },
+              {
+                "expr": "rate(trades_failed_total[5m])",
+                "legendFormat": "Failed"
+              }
+            ]
+          },
+          {
+            "id": 6,
+            "title": "Response Time",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+                "legendFormat": "95th percentile - {{instance}}"
+              }
+            ],
+            "yAxes": [
+              {
+                "unit": "s"
+              }
+            ]
+          },
+          {
+            "id": 7,
+            "title": "Memory Usage",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "(container_memory_usage_bytes{container!=\"\"} / container_spec_memory_limit_bytes{container!=\"\"}) * 100",
+                "legendFormat": "{{instance}}"
+              }
+            ],
+            "yAxes": [
+              {
+                "unit": "percent",
+                "min": 0,
+                "max": 100
+              }
+            ]
+          },
+          {
+            "id": 8,
+            "title": "CPU Usage",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "(rate(container_cpu_usage_seconds_total{container!=\"\"}[5m]) * 100)",
+                "legendFormat": "{{instance}}"
+              }
+            ],
+            "yAxes": [
+              {
+                "unit": "percent",
+                "min": 0,
+                "max": 100
+              }
+            ]
+          }
+        ],
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "refresh": "30s"
+      }
+    }
+
+  # System monitoring dashboard
+  system-dashboard.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "System Monitoring",
+        "tags": ["system", "infrastructure"],
+        "style": "dark",
+        "timezone": "browser",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Node Status",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "up{job=\"node-exporter\"}",
+                "legendFormat": "{{instance}}"
+              }
+            ]
+          },
+          {
+            "id": 2,
+            "title": "Disk Usage",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "(1 - (node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"})) * 100",
+                "legendFormat": "{{instance}}"
+              }
+            ],
+            "yAxes": [
+              {
+                "unit": "percent",
+                "min": 0,
+                "max": 100
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "Memory Usage",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+                "legendFormat": "{{instance}}"
+              }
+            ],
+            "yAxes": [
+              {
+                "unit": "percent",
+                "min": 0,
+                "max": 100
+              }
+            ]
+          },
+          {
+            "id": 4,
+            "title": "Network Traffic",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "rate(node_network_receive_bytes_total[5m])",
+                "legendFormat": "Receive - {{instance}}"
+              },
+              {
+                "expr": "rate(node_network_transmit_bytes_total[5m])",
+                "legendFormat": "Transmit - {{instance}}"
+              }
+            ],
+            "yAxes": [
+              {
+                "unit": "bytes"
+              }
+            ]
+          }
+        ],
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "refresh": "30s"
+      }
+    }
+
+  # Database monitoring dashboard
+  database-dashboard.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Database Monitoring",
+        "tags": ["database", "postgresql"],
+        "style": "dark",
+        "timezone": "browser",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Database Status",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "pg_up",
+                "legendFormat": "PostgreSQL"
+              }
+            ]
+          },
+          {
+            "id": 2,
+            "title": "Active Connections",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "pg_stat_database_numbackends",
+                "legendFormat": "{{datname}}"
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "Query Performance",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "rate(pg_stat_database_tup_fetched[5m])",
+                "legendFormat": "Tuples Fetched - {{datname}}"
+              },
+              {
+                "expr": "rate(pg_stat_database_tup_inserted[5m])",
+                "legendFormat": "Tuples Inserted - {{datname}}"
+              },
+              {
+                "expr": "rate(pg_stat_database_tup_updated[5m])",
+                "legendFormat": "Tuples Updated - {{datname}}"
+              }
+            ]
+          },
+          {
+            "id": 4,
+            "title": "Cache Hit Ratio",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "pg_stat_database_blk_hit / (pg_stat_database_blk_hit + pg_stat_database_blk_read) * 100",
+                "legendFormat": "{{datname}}"
+              }
+            ],
+            "yAxes": [
+              {
+                "unit": "percent",
+                "min": 0,
+                "max": 100
+              }
+            ]
+          }
+        ],
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "refresh": "30s"
+      }
+    }
+
+  # Redis monitoring dashboard
+  redis-dashboard.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Redis Monitoring",
+        "tags": ["redis", "cache"],
+        "style": "dark",
+        "timezone": "browser",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Redis Status",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "redis_up",
+                "legendFormat": "Redis"
+              }
+            ]
+          },
+          {
+            "id": 2,
+            "title": "Memory Usage",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "redis_memory_used_bytes",
+                "legendFormat": "Used Memory"
+              },
+              {
+                "expr": "redis_memory_max_bytes",
+                "legendFormat": "Max Memory"
+              }
+            ],
+            "yAxes": [
+              {
+                "unit": "bytes"
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "Commands per Second",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "rate(redis_commands_processed_total[5m])",
+                "legendFormat": "Commands/sec"
+              }
+            ]
+          },
+          {
+            "id": 4,
+            "title": "Connected Clients",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "redis_connected_clients",
+                "legendFormat": "Connected Clients"
+              }
+            ]
+          }
+        ],
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "refresh": "30s"
+      }
+    }

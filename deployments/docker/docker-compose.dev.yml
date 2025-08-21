@@ -1,0 +1,195 @@
+# Development Docker Compose configuration for Crypto Trading Bots
+# This file contains development environment setup with debugging capabilities
+
+version: '3.8'
+
+services:
+  # DCA Bot Service (Development)
+  dca-bot-dev:
+    build: 
+      context: ../..
+      dockerfile: Dockerfile
+      target: development
+    container_name: crypto-dca-bot-dev
+    ports:
+      - "8080:8080"
+      - "2345:2345"  # Delve debugger port
+    volumes:
+      - ../../configs:/app/configs:ro
+      - ../../logs:/app/logs
+      - ../../internal:/app/internal
+      - ../../pkg:/app/pkg
+      - ../../cmd:/app/cmd
+    environment:
+      - EXCHANGE_API_KEY=${EXCHANGE_API_KEY:-test-key}
+      - EXCHANGE_SECRET_KEY=${EXCHANGE_SECRET_KEY:-test-secret}
+      - EXCHANGE_SANDBOX=true
+      - LOG_LEVEL=debug
+      - ENVIRONMENT=development
+      - DEBUG=true
+    command: ["dlv", "exec", "--listen=:2345", "--headless=true", "--api-version=2", "--accept-multiclient", "./bin/dca-bot", "--", "-config", "configs/dca-config.json"]
+    restart: unless-stopped
+    networks:
+      - crypto-network-dev
+    depends_on:
+      - redis-dev
+      - postgres-dev
+
+  # Grid Bot Service (Development)
+  grid-bot-dev:
+    build: 
+      context: ../..
+      dockerfile: Dockerfile
+      target: development
+    container_name: crypto-grid-bot-dev
+    ports:
+      - "8081:8081"
+      - "2346:2345"  # Delve debugger port
+    volumes:
+      - ../../configs:/app/configs:ro
+      - ../../logs:/app/logs
+      - ../../internal:/app/internal
+      - ../../pkg:/app/pkg
+      - ../../cmd:/app/cmd
+    environment:
+      - EXCHANGE_API_KEY=${EXCHANGE_API_KEY:-test-key}
+      - EXCHANGE_SECRET_KEY=${EXCHANGE_SECRET_KEY:-test-secret}
+      - EXCHANGE_SANDBOX=true
+      - LOG_LEVEL=debug
+      - ENVIRONMENT=development
+      - DEBUG=true
+    command: ["dlv", "exec", "--listen=:2345", "--headless=true", "--api-version=2", "--accept-multiclient", "./bin/grid-bot", "--", "-config", "configs/grid-config.json"]
+    restart: unless-stopped
+    networks:
+      - crypto-network-dev
+    depends_on:
+      - redis-dev
+      - postgres-dev
+
+  # Combo Bot Service (Development)
+  combo-bot-dev:
+    build: 
+      context: ../..
+      dockerfile: Dockerfile
+      target: development
+    container_name: crypto-combo-bot-dev
+    ports:
+      - "8082:8082"
+      - "2347:2345"  # Delve debugger port
+    volumes:
+      - ../../configs:/app/configs:ro
+      - ../../logs:/app/logs
+      - ../../internal:/app/internal
+      - ../../pkg:/app/pkg
+      - ../../cmd:/app/cmd
+    environment:
+      - EXCHANGE_API_KEY=${EXCHANGE_API_KEY:-test-key}
+      - EXCHANGE_SECRET_KEY=${EXCHANGE_SECRET_KEY:-test-secret}
+      - EXCHANGE_SANDBOX=true
+      - LOG_LEVEL=debug
+      - ENVIRONMENT=development
+      - DEBUG=true
+    command: ["dlv", "exec", "--listen=:2345", "--headless=true", "--api-version=2", "--accept-multiclient", "./bin/combo-bot", "--", "-config", "configs/combo-config.json"]
+    restart: unless-stopped
+    networks:
+      - crypto-network-dev
+    depends_on:
+      - redis-dev
+      - postgres-dev
+
+  # Backtester Service (Development)
+  backtester-dev:
+    build: 
+      context: ../..
+      dockerfile: Dockerfile
+      target: development
+    container_name: crypto-backtester-dev
+    volumes:
+      - ../../test/data:/app/test/data:ro
+      - ../../logs:/app/logs
+      - ../../internal:/app/internal
+      - ../../pkg:/app/pkg
+      - ../../cmd:/app/cmd
+    environment:
+      - LOG_LEVEL=debug
+      - ENVIRONMENT=development
+      - DEBUG=true
+    command: ["./bin/backtester", "-data", "test/data/BTCUSDT-1h.csv", "-start", "2024-01-01T00:00:00Z", "-end", "2024-01-31T23:59:59Z"]
+    restart: "no"
+    networks:
+      - crypto-network-dev
+    depends_on:
+      - postgres-dev
+
+  # Redis for development (with persistence)
+  redis-dev:
+    image: redis:alpine
+    container_name: crypto-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-dev-data:/data
+    restart: unless-stopped
+    networks:
+      - crypto-network-dev
+    command: redis-server --appendonly yes --loglevel verbose
+
+  # PostgreSQL for development
+  postgres-dev:
+    image: postgres:15-alpine
+    container_name: crypto-postgres-dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    environment:
+      - POSTGRES_DB=crypto_trading_dev
+      - POSTGRES_USER=crypto_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-dev_password}
+    restart: unless-stopped
+    networks:
+      - crypto-network-dev
+
+  # pgAdmin for database management
+  pgadmin-dev:
+    image: dpage/pgadmin4:latest
+    container_name: crypto-pgadmin-dev
+    ports:
+      - "5050:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-admin@crypto.com}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:-admin}
+    volumes:
+      - pgadmin-dev-data:/var/lib/pgadmin
+    restart: unless-stopped
+    networks:
+      - crypto-network-dev
+    depends_on:
+      - postgres-dev
+
+  # Redis Commander for Redis management
+  redis-commander-dev:
+    image: rediscommander/redis-commander:latest
+    container_name: crypto-redis-commander-dev
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis-dev:6379
+    restart: unless-stopped
+    networks:
+      - crypto-network-dev
+    depends_on:
+      - redis-dev
+
+networks:
+  crypto-network-dev:
+    driver: bridge
+
+volumes:
+  redis-dev-data:
+    driver: local
+  postgres-dev-data:
+    driver: local
+  pgadmin-dev-data:
+    driver: local

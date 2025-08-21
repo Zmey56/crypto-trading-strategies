@@ -1,0 +1,213 @@
+# Prometheus alerting rules for Crypto Trading Bots
+# This file contains alert conditions and thresholds
+
+groups:
+  - name: crypto-trading-bots
+    rules:
+      # Bot availability alerts
+      - alert: BotDown
+        expr: up{job=~"dca-bot|grid-bot|combo-bot"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: trading-bot
+        annotations:
+          summary: "Trading bot is down"
+          description: "{{ $labels.instance }} has been down for more than 1 minute"
+
+      # High error rate alerts
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          service: trading-bot
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} errors per second for {{ $labels.instance }}"
+
+      # High response time alerts
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: trading-bot
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is {{ $value }}s for {{ $labels.instance }}"
+
+      # Memory usage alerts
+      - alert: HighMemoryUsage
+        expr: (container_memory_usage_bytes{container!=""} / container_spec_memory_limit_bytes{container!=""}) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: trading-bot
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}% for {{ $labels.instance }}"
+
+      # CPU usage alerts
+      - alert: HighCPUUsage
+        expr: (rate(container_cpu_usage_seconds_total{container!=""}[5m]) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: trading-bot
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}% for {{ $labels.instance }}"
+
+      # Disk usage alerts
+      - alert: HighDiskUsage
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 20
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High disk usage"
+          description: "Disk usage is {{ $value }}% available on {{ $labels.instance }}"
+
+  - name: trading-strategy-alerts
+    rules:
+      # Trading strategy specific alerts
+      - alert: NoTradesExecuted
+        expr: increase(trades_executed_total[1h]) == 0
+        for: 1h
+        labels:
+          severity: warning
+          service: trading-strategy
+        annotations:
+          summary: "No trades executed in the last hour"
+          description: "{{ $labels.instance }} has not executed any trades in the last hour"
+
+      - alert: HighTradeFailureRate
+        expr: rate(trade_failures_total[5m]) / rate(trades_attempted_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          service: trading-strategy
+        annotations:
+          summary: "High trade failure rate"
+          description: "Trade failure rate is {{ $value }}% for {{ $labels.instance }}"
+
+      - alert: LowBalance
+        expr: account_balance_usdt < 100
+        for: 5m
+        labels:
+          severity: critical
+          service: trading-strategy
+        annotations:
+          summary: "Low account balance"
+          description: "Account balance is {{ $value }} USDT for {{ $labels.instance }}"
+
+      - alert: HighDrawdown
+        expr: portfolio_drawdown_percent > 20
+        for: 10m
+        labels:
+          severity: critical
+          service: trading-strategy
+        annotations:
+          summary: "High portfolio drawdown"
+          description: "Portfolio drawdown is {{ $value }}% for {{ $labels.instance }}"
+
+  - name: exchange-connection-alerts
+    rules:
+      # Exchange API connection alerts
+      - alert: ExchangeConnectionFailed
+        expr: exchange_connection_status == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: exchange
+        annotations:
+          summary: "Exchange connection failed"
+          description: "Cannot connect to exchange API for {{ $labels.instance }}"
+
+      - alert: HighExchangeLatency
+        expr: exchange_api_latency_seconds > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: exchange
+        annotations:
+          summary: "High exchange API latency"
+          description: "Exchange API latency is {{ $value }}s for {{ $labels.instance }}"
+
+      - alert: ExchangeRateLimitExceeded
+        expr: increase(exchange_rate_limit_exceeded_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: exchange
+        annotations:
+          summary: "Exchange rate limit exceeded"
+          description: "Rate limit exceeded for {{ $labels.instance }}"
+
+  - name: database-alerts
+    rules:
+      # Database connection alerts
+      - alert: DatabaseConnectionFailed
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: database
+        annotations:
+          summary: "Database connection failed"
+          description: "Cannot connect to PostgreSQL database"
+
+      - alert: HighDatabaseConnections
+        expr: pg_stat_database_numbackends > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "High number of database connections"
+          description: "{{ $value }} active database connections"
+
+      - alert: SlowDatabaseQueries
+        expr: histogram_quantile(0.95, rate(pg_stat_activity_max_tx_duration[5m])) > 30
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "95th percentile query duration is {{ $value }}s"
+
+  - name: redis-alerts
+    rules:
+      # Redis alerts
+      - alert: RedisConnectionFailed
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: redis
+        annotations:
+          summary: "Redis connection failed"
+          description: "Cannot connect to Redis"
+
+      - alert: HighRedisMemoryUsage
+        expr: (redis_memory_used_bytes / redis_memory_max_bytes) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: redis
+        annotations:
+          summary: "High Redis memory usage"
+          description: "Redis memory usage is {{ $value }}%"
+
+      - alert: RedisSlowCommands
+        expr: rate(redis_slowlog_length[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: redis
+        annotations:
+          summary: "Redis slow commands detected"
+          description: "{{ $value }} slow commands per second"

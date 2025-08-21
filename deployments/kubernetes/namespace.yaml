@@ -1,0 +1,49 @@
+# Kubernetes namespace configuration for Crypto Trading Bots
+# This file defines the namespace and basic resource quotas
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: crypto-trading
+  labels:
+    name: crypto-trading
+    environment: production
+---
+# Resource quota for the namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: crypto-trading-quota
+  namespace: crypto-trading
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi
+    persistentvolumeclaims: "10"
+    services: "20"
+    pods: "20"
+---
+# Limit range for default resource limits
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: crypto-trading-limits
+  namespace: crypto-trading
+spec:
+  limits:
+  - default:
+      cpu: 500m
+      memory: 512Mi
+    defaultRequest:
+      cpu: 100m
+      memory: 128Mi
+    type: Container
+  - max:
+      cpu: 2
+      memory: 2Gi
+    min:
+      cpu: 50m
+      memory: 64Mi
+    type: Container

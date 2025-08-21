@@ -1,0 +1,192 @@
+# Kubernetes Deployment for DCA Bot
+# This file defines the deployment configuration for the DCA trading bot
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dca-bot
+  namespace: crypto-trading
+  labels:
+    app: crypto-trading
+    component: dca-bot
+    version: v1.0.0
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: crypto-trading
+      component: dca-bot
+  template:
+    metadata:
+      labels:
+        app: crypto-trading
+        component: dca-bot
+        version: v1.0.0
+    spec:
+      serviceAccountName: crypto-trading-sa
+      containers:
+      - name: dca-bot
+        image: crypto-trading-bot:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        - containerPort: 9090
+          name: metrics
+          protocol: TCP
+        env:
+        - name: EXCHANGE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: crypto-trading-secrets
+              key: exchange-api-key
+        - name: EXCHANGE_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: crypto-trading-secrets
+              key: exchange-secret-key
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: crypto-trading-config
+              key: environment
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: crypto-trading-config
+              key: log-level
+        - name: EXCHANGE_SANDBOX
+          valueFrom:
+            configMapKeyRef:
+              name: crypto-trading-config
+              key: exchange-sandbox
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: crypto-trading-secrets
+              key: postgres-password
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: crypto-trading-secrets
+              key: redis-password
+        command: ["./bin/dca-bot"]
+        args: ["-config", "/app/config/dca-config.json"]
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+          readOnly: true
+        - name: logs-volume
+          mountPath: /app/logs
+        - name: data-volume
+          mountPath: /app/data
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+      volumes:
+      - name: config-volume
+        configMap:
+          name: crypto-trading-config
+          items:
+          - key: dca-config.json
+            path: dca-config.json
+      - name: logs-volume
+        persistentVolumeClaim:
+          claimName: dca-bot-logs-pvc
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: dca-bot-data-pvc
+      securityContext:
+        fsGroup: 1000
+---
+# Service for DCA Bot
+apiVersion: v1
+kind: Service
+metadata:
+  name: dca-bot-service
+  namespace: crypto-trading
+  labels:
+    app: crypto-trading
+    component: dca-bot
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  - port: 9090
+    targetPort: 9090
+    protocol: TCP
+    name: metrics
+  selector:
+    app: crypto-trading
+    component: dca-bot
+---
+# Persistent Volume Claim for logs
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dca-bot-logs-pvc
+  namespace: crypto-trading
+  labels:
+    app: crypto-trading
+    component: dca-bot
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: standard
+---
+# Persistent Volume Claim for data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dca-bot-data-pvc
+  namespace: crypto-trading
+  labels:
+    app: crypto-trading
+    component: dca-bot
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: standard

@@ -1,0 +1,123 @@
+# Kubernetes ConfigMap for Crypto Trading Bots
+# This file contains configuration data for the application
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: crypto-trading-config
+  namespace: crypto-trading
+  labels:
+    app: crypto-trading
+    component: config
+data:
+  # DCA Bot configuration
+  dca-config.json: |
+    {
+      "app": {
+        "name": "crypto-dca-bot",
+        "version": "1.0.0",
+        "port": 8080,
+        "debug": false
+      },
+      "exchange": {
+        "name": "binance",
+        "sandbox": false
+      },
+      "strategy": {
+        "dca": {
+          "symbol": "BTCUSDT",
+          "investment_amount": 100.0,
+          "interval": "24h",
+          "max_investments": 100,
+          "price_threshold": 0.0,
+          "stop_loss": 0.0,
+          "take_profit": 0.0,
+          "enabled": true
+        }
+      },
+      "logging": {
+        "level": "info",
+        "format": "json"
+      }
+    }
+
+  # Grid Bot configuration
+  grid-config.json: |
+    {
+      "app": {
+        "name": "crypto-grid-bot",
+        "version": "1.0.0",
+        "port": 8081,
+        "debug": false
+      },
+      "exchange": {
+        "name": "binance",
+        "sandbox": false
+      },
+      "strategy": {
+        "grid": {
+          "symbol": "BTCUSDT",
+          "upper_price": 50000.0,
+          "lower_price": 40000.0,
+          "grid_levels": 20,
+          "investment_per_level": 100.0,
+          "enabled": true
+        }
+      },
+      "logging": {
+        "level": "info",
+        "format": "json"
+      }
+    }
+
+  # Combo Bot configuration
+  combo-config.json: |
+    {
+      "app": {
+        "name": "crypto-combo-bot",
+        "version": "1.0.0",
+        "port": 8082,
+        "debug": false
+      },
+      "exchange": {
+        "name": "binance",
+        "sandbox": false
+      },
+      "strategy": {
+        "combo": {
+          "strategies": [
+            {
+              "type": "dca",
+              "config": {
+                "symbol": "BTCUSDT",
+                "investment_amount": 50.0,
+                "interval": "24h",
+                "max_investments": 50,
+                "enabled": true
+              }
+            },
+            {
+              "type": "grid",
+              "config": {
+                "symbol": "BTCUSDT",
+                "upper_price": 50000.0,
+                "lower_price": 40000.0,
+                "grid_levels": 10,
+                "investment_per_level": 50.0,
+                "enabled": true
+              }
+            }
+          ],
+          "enabled": true
+        }
+      },
+      "logging": {
+        "level": "info",
+        "format": "json"
+      }
+    }
+
+  # Environment variables
+  environment: "production"
+  log-level: "info"
+  exchange-sandbox: "false"

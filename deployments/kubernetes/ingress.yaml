@@ -1,0 +1,131 @@
+# Kubernetes Ingress configuration for Crypto Trading Bots
+# This file defines external access to the application services
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: crypto-trading-ingress
+  namespace: crypto-trading
+  labels:
+    app: crypto-trading
+    component: ingress
+  annotations:
+    # SSL/TLS configuration
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    kubernetes.io/ingress.class: "nginx"
+    
+    # Rate limiting
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header X-Frame-Options DENY;
+      add_header X-Content-Type-Options nosniff;
+      add_header X-XSS-Protection "1; mode=block";
+      add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    
+    # CORS configuration
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+    
+    # Proxy settings
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+spec:
+  tls:
+  - hosts:
+    - api.crypto-trading.com
+    - dca.crypto-trading.com
+    - grid.crypto-trading.com
+    - combo.crypto-trading.com
+    secretName: crypto-trading-tls
+  rules:
+  # Main API endpoint
+  - host: api.crypto-trading.com
+    http:
+      paths:
+      - path: /dca
+        pathType: Prefix
+        backend:
+          service:
+            name: dca-bot-service
+            port:
+              number: 8080
+      - path: /grid
+        pathType: Prefix
+        backend:
+          service:
+            name: grid-bot-service
+            port:
+              number: 8081
+      - path: /combo
+        pathType: Prefix
+        backend:
+          service:
+            name: combo-bot-service
+            port:
+              number: 8082
+      - path: /health
+        pathType: Exact
+        backend:
+          service:
+            name: dca-bot-service
+            port:
+              number: 8080
+  
+  # DCA Bot specific domain
+  - host: dca.crypto-trading.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dca-bot-service
+            port:
+              number: 8080
+  
+  # Grid Bot specific domain
+  - host: grid.crypto-trading.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: grid-bot-service
+            port:
+              number: 8081
+  
+  # Combo Bot specific domain
+  - host: combo.crypto-trading.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: combo-bot-service
+            port:
+              number: 8082
+---
+# Certificate for TLS
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: crypto-trading-cert
+  namespace: crypto-trading
+spec:
+  secretName: crypto-trading-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - api.crypto-trading.com
+  - dca.crypto-trading.com
+  - grid.crypto-trading.com
+  - combo.crypto-trading.com

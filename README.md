@@ -334,3 +334,35 @@ This project is for educational purposes only. Cryptocurrency trading involves h
 - Issues: [GitHub Issues](https://github.com/your-repo/issues)
 - Discussions: [GitHub Discussions](https://github.com/your-repo/discussions)
 - Email: support@example.com
+
+## 📚 Related Articles
+
+### Comparing Strategies: DCA vs Grid Trading
+
+For a detailed comparison of DCA and Grid trading strategies, including performance analysis, risk assessment, and practical implementation insights, check out our comprehensive article:
+
+**[Comparing Strategies: DCA vs Grid Trading](https://medium.com/@alsgladkikh/comparing-strategies-dca-vs-grid-trading-2724fa809576)**
+
+This article provides:
+- Deep dive into both DCA and Grid trading methodologies
+- Performance comparison across different market conditions
+- Risk analysis and drawdown scenarios
+- Practical implementation guidelines
+- Real-world examples and case studies
+
+## 🚀 From Theory to Practice
+
+For those who want to move from theory to practice, I provide daily actionable DCA signals:
+
+- **Twitter**: [@Algo_Adviser](https://twitter.com/Algo_Adviser)
+- **Telegram**: [AlgoAdviser](https://t.me/AlgoAdviser)
+
+### 🎯 Get Started with Bitsgap
+
+You can also get a **7-day PRO trial** on Bitsgap through my referral link: **[bitsgap.com/?ref=algo-adviser](https://bitsgap.com/?ref=algo-adviser)**
+
+Traders who register via this link will receive priority access to my private channels in the future, featuring:
+- A wider range of DCA signals across more coins
+- Exclusive GRID strategy setups
+- Advanced portfolio management techniques
+- Real-time market analysis and insights

@@ -15,6 +15,91 @@ Project for automated cryptocurrency trading using various strategies.
 - Docker containerization ✅
 - Full test coverage ✅
 
+## ❓ FAQ: Safety & Usage
+
+### ⚠️ Is this repo a "get-rich-quick bot"?
+No. This is an **educational and research project only**.  
+It's meant to **study and compare strategies (DCA vs Grid)**, not to guarantee profits.  
+All results depend on market conditions, risk management, and your own decisions.
+
+---
+
+### 🔑 Do I need to provide my real API keys?
+**No.**  
+- The repo comes with **mocked/demo keys** for testing.  
+- Everything runs **locally** on your machine.  
+- Never share your real keys with any public project unless you have personally audited the code.
+
+---
+
+### 🏦 Which exchanges are supported?
+Currently:  
+- **Binance (paper trading / testnet configs)**  
+- Any exchange supported via **CCXT-compatible adapters** (extendable).  
+
+You can swap the data source in the config.
+
+---
+
+### 📊 Does this execute real trades?
+By default: **no, only paper trading & backtests.**  
+Real trading requires adding your own exchange keys (not recommended unless you've audited and customized the code).  
+
+---
+
+### 🛡️ How safe is this?
+- No sensitive data leaves your machine.  
+- API keys (if added) stay local.  
+- The project is **not audited** and should **not be used with significant funds**.  
+It's a learning tool, not production-ready software.
+
+---
+
+### 📈 What metrics are included in the backtests?
+- Profit factor (PF)  
+- Max drawdown (MDD)  
+- Average win/loss  
+- Sharpe ratio  
+- Equity curves  
+
+You can extend metrics in `internal/backtest`.
+
+---
+
+### ⚙️ Can I add new strategies?
+Yes.  
+- All strategies implement a simple `Strategy` interface.  
+- You can add new ones under `internal/strategy`.  
+- Example: add a momentum filter, volatility bands, or combine DCA with trailing stops.
+
+---
+
+### 🧪 How reproducible are the tests?
+- Backtests use seeded random generators for determinism.  
+- Sample configs are included for BTC/ETH.  
+- You can reproduce results with `make run-backtest`.
+
+---
+
+### 🌐 Can this be ported to DeFi / AMMs?
+Not yet.  
+Current code is focused on CEX + CCXT APIs.  
+Future work may adapt **Grid logic to Uniswap v3 ranges** and DCA to on-chain DEX execution.
+
+---
+
+### 📅 Why does the commit history look small?
+This is a **lightweight side project** I maintain for research.  
+The repo focuses on clarity and minimalism, not constant updates.  
+Contributions, issues, and pull requests are welcome.
+
+---
+
+### 📜 License and intended use?
+- MIT License.  
+- For research, education, and testing only.  
+- **Use at your own risk.** No warranties, no guarantees of profit.
+
 ## 📁 Project Structure
 
 ```

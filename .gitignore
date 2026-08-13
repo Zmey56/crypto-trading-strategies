@@ -1,4 +1,26 @@
+# Build output
 bin/
+coverage.out
+coverage.html
+
+# Compiled binaries built at the repo root (use `make build` -> bin/ instead)
+/backtester
+/dca-bot
+/grid-bot
+/combo-bot
+
+# Secrets and local configuration
 .env
+.env.local
+
+# Logs
+logs/
 *.log
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+
+# OS
 .DS_Store

@@ -149,7 +149,7 @@ func runTradingLoop(ctx context.Context, strategy strategy.Strategy, exchange ty
 
 			// Log metrics
 			metrics := strategy.GetMetrics()
-			log.Debug("Метрики стратегии: %+v", metrics)
+			log.Debug("Strategy metrics: %+v", metrics)
 		}
 	}
 }
@@ -185,7 +185,7 @@ type MockExchangeClient struct {
 }
 
 func (m *MockExchangeClient) PlaceOrder(ctx context.Context, order types.Order) error {
-	m.logger.Info("Mock: Размещен ордер %s %.8f @ %.2f", order.Symbol, order.Quantity, order.Price)
+	m.logger.Info("Mock: Order placed %s %.8f @ %.2f", order.Symbol, order.Quantity, order.Price)
 
 			// Simulate successful execution
 	order.Status = types.OrderStatusFilled
@@ -196,7 +196,7 @@ func (m *MockExchangeClient) PlaceOrder(ctx context.Context, order types.Order) 
 }
 
 func (m *MockExchangeClient) CancelOrder(ctx context.Context, orderID string) error {
-	m.logger.Info("Mock: Отменен ордер %s", orderID)
+	m.logger.Info("Mock: Order cancelled %s", orderID)
 	return nil
 }
 
@@ -304,7 +304,7 @@ func startHTTPServer(ctx context.Context, cfg *config.Config, log *logger.Logger
 	}
 
 	go func() {
-		log.Info("HTTP сервер запущен на порту %d", cfg.App.Port)
+		log.Info("HTTP server started on port %d", cfg.App.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Error("HTTP server error: %v", err)
 		}
@@ -314,7 +314,7 @@ func startHTTPServer(ctx context.Context, cfg *config.Config, log *logger.Logger
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(shutdownCtx)
-	log.Info("HTTP сервер остановлен")
+	log.Info("HTTP server stopped")
 }
 
 func loggingMiddleware(log *logger.Logger, next http.Handler) http.Handler {
